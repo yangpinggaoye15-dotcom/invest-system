@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+
+# J-Quants APIキー（絶対にコミットしない）
+.jquants_config.json
+*.json.bak
+
+# ローカル環境用
+csv_output/
+data/stock_prices.db
+
+# OS
+.DS_Store
+Thumbs.db
