@@ -83,9 +83,10 @@ def _headers():
 # Fetch & convert
 # ---------------------------------------------------------------------------
 
-def _fetch_daily(code_4: str) -> list:
+def _fetch_daily(code_4: str, days: int = 400) -> list:
+    """Fetch daily bars. days=1 for today only (update mode)."""
     code_5    = code_4 + "0"
-    date_from = (datetime.now() - timedelta(days=400)).strftime("%Y%m%d")
+    date_from = (datetime.now() - timedelta(days=days)).strftime("%Y%m%d")
     date_to   = datetime.now().strftime("%Y%m%d")
     url  = (f"https://api.jquants.com/v2/equities/bars/daily"
             f"?code={code_5}&from={date_from}&to={date_to}")
@@ -383,6 +384,141 @@ def run(resume: bool = True, max_stocks: int = 0, exclude_etf: bool = True):
              f"所要:{elapsed_min}分")
     log.info(f"結果: {RESULTS_FILE}")
 
+
+def update():
+    """
+    差分更新モード（毎日15時の自動実行用）
+    - 当日分のデータのみ取得（days=5: 週明けも対応）
+    - 既存CSVに追記してMinerviniを再計算
+    - APIコール数が約80分の1になる
+    """
+    log.info("=" * 60)
+    log.info("UPDATE MODE: 差分更新（当日データのみ取得）")
+
+    items = fetch_master()
+    items = [i for i in items if not _is_etf(str(i.get("Code",""))[:4], i)]
+    codes = [str(i["Code"])[:4] for i in items]
+    total = len(codes)
+    log.info(f"Target: {total} stocks")
+
+    # Nikkei225ベンチマーク（直近5日分）
+    bench_closes = []
+    try:
+        # 既存CSVに追記してから全期間のcloseを取得
+        bench_csv = CSV_DIR / f"{NIKKEI225_CODE}_daily.csv"
+        new_bars  = _fetch_daily(NIKKEI225_CODE, days=5)
+        if new_bars and bench_csv.exists():
+            existing = pd.read_csv(bench_csv, parse_dates=["date"]).set_index("date")
+            new_df   = _daily_to_df(new_bars)
+            merged   = pd.concat([existing, new_df])
+            merged   = merged[~merged.index.duplicated(keep="last")].sort_index()
+            merged.reset_index().to_csv(bench_csv, index=False)
+            bench_closes = merged["close"].tolist()
+        elif new_bars:
+            bench_closes = _daily_to_df(new_bars)["close"].tolist()
+        log.info(f"Nikkei225: {len(bench_closes)} days")
+    except Exception as e:
+        log.warning(f"Nikkei225 update failed: {e}")
+
+    # 既存のスクリーニング結果をロード
+    results    = _load_results()
+    started_at = datetime.now().isoformat()
+    errors = passed = 0
+
+    def _update_one(code_4):
+        """当日データを取得し既存CSVに追記してスクリーニング"""
+        try:
+            new_bars = _fetch_daily(code_4, days=5)  # 直近5日（週明け対応）
+            if not new_bars:
+                return None
+
+            csv_path = CSV_DIR / f"{code_4}_daily.csv"
+            if csv_path.exists():
+                existing = pd.read_csv(csv_path, parse_dates=["date"]).set_index("date")
+                new_df   = _daily_to_df(new_bars)
+                merged   = pd.concat([existing, new_df])
+                merged   = merged[~merged.index.duplicated(keep="last")].sort_index()
+                merged.reset_index().to_csv(csv_path, index=False)
+                df = merged
+            else:
+                # CSVがなければフル取得
+                full_bars = _fetch_daily(code_4, days=400)
+                df = _daily_to_df(full_bars)
+                df.reset_index().to_csv(csv_path, index=False)
+
+            result = _minervini(df)
+            if "error" in result:
+                return {"code": code_4, "error": result["error"]}
+
+            rs = {} if not bench_closes else _calc_rs(df["close"].tolist(), bench_closes)
+            return {
+                "code":       code_4,
+                "name":       _lookup(code_4),
+                "price":      result["price"],
+                "passed":     result["passed"],
+                "score":      result["score"],
+                "high52":     result["high52"],
+                "low52":      result["low52"],
+                "sma50":      result["sma50"],
+                "sma150":     result["sma150"],
+                "sma200":     result["sma200"],
+                "conditions": result["conditions"],
+                "rs6w":       rs.get("rs6w"),
+                "rs13w":      rs.get("rs13w"),
+                "rs26w":      rs.get("rs26w"),
+            }
+        except Exception as e:
+            return {"code": code_4, "error": str(e)}
+
+    batch_count = 0
+    with ThreadPoolExecutor(max_workers=PARALLEL_WORKERS) as executor:
+        future_to_code = {executor.submit(_update_one, c): c for c in codes}
+        for future in as_completed(future_to_code):
+            code = future_to_code[future]
+            try:
+                res = future.result()
+            except Exception as e:
+                res = {"code": code, "error": str(e)}
+
+            if res is None:
+                continue
+
+            results[code] = res
+            batch_count  += 1
+            if res.get("error"):
+                errors += 1
+            elif res.get("passed"):
+                passed += 1
+
+            if batch_count % BATCH_SIZE == 0:
+                done = batch_count
+                _save_progress(done, total, started_at)
+                _save_results(results)
+                log.info(f"Progress: {done}/{total} ({done/total*100:.1f}%)  "
+                         f"PASS:{passed}  ERR:{errors}")
+
+    finished_at = datetime.now().isoformat()
+    elapsed_min = round(
+        (datetime.now() - datetime.fromisoformat(started_at)).total_seconds() / 60, 1
+    )
+    pass_count = sum(1 for k, v in results.items()
+                     if k != "__meta__" and v.get("passed"))
+    results["__meta__"] = {
+        "started_at":  started_at,
+        "finished_at": finished_at,
+        "elapsed_min": elapsed_min,
+        "total":       total,
+        "passed":      pass_count,
+        "errors":      errors,
+        "mode":        "update",
+    }
+    _save_results(results)
+
+    log.info("=" * 60)
+    log.info(f"更新完了! {total}銘柄  PASS:{pass_count}  ERR:{errors}  "
+             f"所要:{elapsed_min}分")
+    log.info(f"結果: {RESULTS_FILE}")
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -395,6 +531,9 @@ if __name__ == "__main__":
     elif "--fresh" in args:
         log.info("FRESH MODE: 全銘柄・最初から")
         run(resume=False)
+    elif "--update" in args:
+        log.info("UPDATE MODE: 差分更新")
+        update()
     else:
-        # デフォルト: 前回続きから（タスクスケジューラ用）
+        # デフォルト: 前回続きから
         run(resume=True)
