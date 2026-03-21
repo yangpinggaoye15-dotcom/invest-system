@@ -8,7 +8,7 @@ on:
 jobs:
   screen:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     permissions:
       contents: write
 
@@ -34,8 +34,10 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f data/
-          git diff --cached --quiet || git commit -m "daily screening $(date +'%Y-%m-%d')"
+          git add -f data/screen_full_results.json || true
+          git add -f data/screen_full_progress.json || true
+          git add -f data/screen_full.log || true
+          git diff --cached --quiet || git commit -m "screening $(date +'%Y-%m-%d')"
           git push
 
       - name: Save log as artifact
