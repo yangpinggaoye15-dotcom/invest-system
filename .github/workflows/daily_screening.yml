@@ -34,7 +34,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f data/screen_full_results.json data/screen_full_progress.json data/screen_full.log
+          git add -f data/screen_full_results.json || true
+          git add -f data/screen_full_progress.json || true
+          git add -f data/screen_full.log || true
           git diff --cached --quiet || git commit -m "screening $(date +'%Y-%m-%d')"
           git push
 
