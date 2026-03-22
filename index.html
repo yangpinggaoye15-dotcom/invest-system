@@ -15,7 +15,26 @@
 .custom-filter-error.show{display:block}
 .preset-row{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
 .preset-btn{padding:3px 8px;font-size:11px;border:1px solid #30363d;border-radius:4px;background:none;color:#8b949e;cursor:pointer}
-.preset-btn:hover{border-color:#f0b429;color:#f0b429}.page{display:none}.page.active{display:block}.coming-soon{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;gap:12px}.coming-soon-title{font-size:16px;font-weight:600;color:#f0b429}.coming-soon-text{font-size:13px;color:#8b949e;text-align:center}</style></head><body><div class="header"><div class="logo">MINERVINI TERMINAL <span>yohei</span></div><div class="updated" id="updated">読み込み中...</div></div><div class="nav"><button class="nav-btn active" onclick="showPage('screening',this)">スクリーニング</button><button class="nav-btn" onclick="showPage('chart',this)">チャート</button><button class="nav-btn" onclick="showPage('fins',this)">業績</button><button class="nav-btn" onclick="showPage('portfolio',this)">ポートフォリオ</button></div><div class="page active" id="page-screening"><div class="metrics"><div class="metric"><div class="metric-label">対象銘柄</div><div class="metric-value muted" id="m-total">-</div></div><div class="metric"><div class="metric-label">PASS 6/7+</div><div class="metric-value green" id="m-pass">-</div></div><div class="metric"><div class="metric-label">満点 7/7</div><div class="metric-value gold" id="m-perfect">-</div></div><div class="metric"><div class="metric-label">高値更新圏</div><div class="metric-value gold" id="m-nearhigh">-</div></div></div><div class="filter-panel"><div class="search-box"><span style="color:#8b949e;font-size:14px">&#128269;</span><input type="text" id="search-input" placeholder="銘柄コード・銘柄名で検索..." oninput="applyFilters()"></div><div class="filter-row"><span class="filter-label">スコア</span><div class="slider-wrap"><input type="range" id="score-slider" min="1" max="7" value="6" step="1" oninput="updateLabel('score-slider','score-val',v=>v+'/7以上')"><span class="slider-val" id="score-val">6/7以上</span></div></div><div class="filter-row"><span class="filter-label">高値比</span><div class="slider-wrap"><input type="range" id="highpct-slider" min="70" max="100" value="90" step="1" oninput="updateLabel('highpct-slider','highpct-val',v=>v+'%以上')"><span class="slider-val" id="highpct-val">90%以上</span></div></div><div class="filter-row"><span class="filter-label">RS26w</span><div class="toggle-wrap"><div class="toggle" id="rs-toggle" onclick="toggleRS()"></div><span class="toggle-label" id="rs-label">全て表示</span></div></div><div class="filter-row"><span class="filter-label">並び順</span><div class="slider-wrap"><select id="sort-select" onchange="applyFilters()" style="background:#161b22;border:1px solid #30363d;border-radius:6px;color:#e6edf3;padding:4px 8px;font-size:12px;flex:1"><option value="score">スコア順</option><option value="rs26w">RS26w強い順</option><option value="high_pct">高値比順</option><option value="price">株価順</option></select></div></div><div class="custom-filter">
+.preset-btn:hover{border-color:#f0b429;color:#f0b429}
+.chat-btn{position:fixed;bottom:24px;right:20px;width:52px;height:52px;border-radius:50%;background:#f0b429;border:none;font-size:22px;cursor:pointer;z-index:150;box-shadow:0 4px 12px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center}
+.chat-panel{position:fixed;bottom:88px;right:16px;width:340px;max-width:calc(100vw - 32px);background:#161b22;border:1px solid #30363d;border-radius:12px;z-index:151;display:none;flex-direction:column;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.chat-panel.open{display:flex}
+.chat-header{padding:12px 16px;border-bottom:1px solid #30363d;display:flex;align-items:center;justify-content:space-between}
+.chat-header-title{font-size:13px;font-weight:600;color:#f0b429}
+.chat-close{background:none;border:none;color:#8b949e;cursor:pointer;font-size:16px;padding:0}
+.chat-messages{height:300px;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+.chat-msg{padding:8px 12px;border-radius:8px;font-size:13px;line-height:1.5;max-width:90%}
+.chat-msg.user{background:#1f6feb;color:#fff;align-self:flex-end}
+.chat-msg.ai{background:#0d1117;color:#e6edf3;align-self:flex-start;border:1px solid #30363d}
+.chat-msg.ai.loading{color:#8b949e}
+.chat-suggestions{display:flex;flex-direction:column;gap:4px;padding:0 12px 8px}
+.chat-suggestion{padding:6px 10px;font-size:12px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#8b949e;cursor:pointer;text-align:left}
+.chat-suggestion:hover{border-color:#f0b429;color:#f0b429}
+.chat-input-row{padding:10px 12px;border-top:1px solid #30363d;display:flex;gap:6px}
+.chat-input{flex:1;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px 10px;color:#e6edf3;font-size:13px;resize:none;height:36px;font-family:inherit}
+.chat-input:focus{outline:none;border-color:#f0b429}
+.chat-send{padding:8px 14px;background:#f0b429;border:none;border-radius:6px;color:#0d1117;font-weight:600;cursor:pointer;font-size:13px}
+.chat-send:disabled{opacity:.5;cursor:not-allowed}.page{display:none}.page.active{display:block}.coming-soon{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;gap:12px}.coming-soon-title{font-size:16px;font-weight:600;color:#f0b429}.coming-soon-text{font-size:13px;color:#8b949e;text-align:center}</style></head><body><div class="header"><div class="logo">MINERVINI TERMINAL <span>yohei</span></div><div class="updated" id="updated">読み込み中...</div></div><div class="nav"><button class="nav-btn active" onclick="showPage('screening',this)">スクリーニング</button><button class="nav-btn" onclick="showPage('chart',this)">チャート</button><button class="nav-btn" onclick="showPage('fins',this)">業績</button><button class="nav-btn" onclick="showPage('portfolio',this)">ポートフォリオ</button></div><div class="page active" id="page-screening"><div class="metrics"><div class="metric"><div class="metric-label">対象銘柄</div><div class="metric-value muted" id="m-total">-</div></div><div class="metric"><div class="metric-label">PASS 6/7+</div><div class="metric-value green" id="m-pass">-</div></div><div class="metric"><div class="metric-label">満点 7/7</div><div class="metric-value gold" id="m-perfect">-</div></div><div class="metric"><div class="metric-label">高値更新圏</div><div class="metric-value gold" id="m-nearhigh">-</div></div></div><div class="filter-panel"><div class="search-box"><span style="color:#8b949e;font-size:14px">&#128269;</span><input type="text" id="search-input" placeholder="銘柄コード・銘柄名で検索..." oninput="applyFilters()"></div><div class="filter-row"><span class="filter-label">スコア</span><div class="slider-wrap"><input type="range" id="score-slider" min="1" max="7" value="6" step="1" oninput="updateLabel('score-slider','score-val',v=>v+'/7以上')"><span class="slider-val" id="score-val">6/7以上</span></div></div><div class="filter-row"><span class="filter-label">高値比</span><div class="slider-wrap"><input type="range" id="highpct-slider" min="70" max="100" value="90" step="1" oninput="updateLabel('highpct-slider','highpct-val',v=>v+'%以上')"><span class="slider-val" id="highpct-val">90%以上</span></div></div><div class="filter-row"><span class="filter-label">RS26w</span><div class="toggle-wrap"><div class="toggle" id="rs-toggle" onclick="toggleRS()"></div><span class="toggle-label" id="rs-label">全て表示</span></div></div><div class="filter-row"><span class="filter-label">並び順</span><div class="slider-wrap"><select id="sort-select" onchange="applyFilters()" style="background:#161b22;border:1px solid #30363d;border-radius:6px;color:#e6edf3;padding:4px 8px;font-size:12px;flex:1"><option value="score">スコア順</option><option value="rs26w">RS26w強い順</option><option value="high_pct">高値比順</option><option value="price">株価順</option></select></div></div><div class="custom-filter">
 <div class="custom-filter-row">
 <input class="custom-filter-input" id="custom-input" placeholder="例: rs26w > 0.5  /  high_pct > 0.97 && score == 7" oninput="applyFilters()">
 <button class="custom-filter-btn" onclick="savePreset()">保存</button>
@@ -23,7 +42,24 @@
 <div class="custom-filter-error" id="custom-error"></div>
 <div class="preset-row" id="preset-row"></div>
 </div>
-<div class="filter-actions"><button class="reset-btn" onclick="resetFilters()">リセット</button><button class="reset-btn" id="vol-btn" onclick="toggleVol()" style="margin-left:4px">出来高急増</button><button class="reset-btn" id="ytd-btn" onclick="toggleYTD()" style="margin-left:4px">年初来高値</button></div></div><div class="section-header"><div class="section-title">PASS銘柄一覧</div><div class="section-count" id="display-count">-</div></div><div id="screening-content"><div class="loading"><div class="spinner"></div><div class="loading-text">データを読み込み中...</div></div></div></div><div class="page" id="page-chart"><div class="coming-soon"><div class="coming-soon-title">週足チャート</div><div class="coming-soon-text">SMA 50/150/200日線チャートを実装予定</div></div></div><div class="page" id="page-fins"><div class="coming-soon"><div class="coming-soon-title">業績分析</div><div class="coming-soon-text">売上・EPS推移グラフを実装予定</div></div></div><div class="page" id="page-portfolio"><div class="coming-soon"><div class="coming-soon-title">ポートフォリオ</div><div class="coming-soon-text">保有株・含み損益管理を実装予定</div></div></div><div class="overlay" id="overlay" onclick="closeDetail()"></div><div class="detail-panel" id="detail-panel"><div class="detail-handle"></div><div class="detail-content" id="detail-content"></div></div><script>const DATA_URL="https://raw.githubusercontent.com/yangpinggaoye15-dotcom/invest-data/main/screen_full_results.json";const CLAUDE_API="https://api.anthropic.com/v1/messages";const GEMINI_API="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";let allData=[],rsOn=false,ytdOn=false,curTab="news";const CL=["Price > SMA150/200","SMA150 > SMA200","SMA200 上昇中","SMA50 > SMA150/200","Price > SMA50","Price > 52wLow x1.25","Price > 52wHigh x0.75"];function gk(k){return localStorage.getItem(k)||""}function sk(k,v){localStorage.setItem(k,v)}async function loadData(){try{const r=await fetch(DATA_URL+"?t="+Date.now());if(!r.ok)throw new Error("HTTP "+r.status);const j=await r.json();const m=j["__meta__"]||{};allData=Object.entries(j).filter(([k,v])=>k!=="__meta__"&&!v.error&&v.passed!==undefined).map(([k,v])=>v);const p=allData.filter(x=>x.passed).length,pf=allData.filter(x=>x.score==="7/7").length,nh=allData.filter(x=>x.passed&&x.high52&&x.price>=x.high52*0.95).length;document.getElementById("m-total").textContent=(m.total||allData.length).toLocaleString();document.getElementById("m-pass").textContent=p.toLocaleString();document.getElementById("m-perfect").textContent=pf.toLocaleString();document.getElementById("m-nearhigh").textContent=nh.toLocaleString();document.getElementById("updated").textContent="更新: "+(m.finished_at?m.finished_at.replace("T"," ").slice(0,16):"-");applyFilters();}catch(e){document.getElementById("screening-content").innerHTML='<div class="error-box">読み込み失敗: '+e.message+"</div>";}}function updateLabel(sid,lid,fn){const v=parseInt(document.getElementById(sid).value);document.getElementById(lid).textContent=fn(v);applyFilters();}function toggleRS(){rsOn=!rsOn;document.getElementById("rs-toggle").classList.toggle("on",rsOn);document.getElementById("rs-label").textContent=rsOn?"プラスのみ":"全て表示";applyFilters();}function resetFilters(){document.getElementById("search-input").value="";document.getElementById("score-slider").value=6;document.getElementById("highpct-slider").value=90;document.getElementById("score-val").textContent="6/7以上";document.getElementById("highpct-val").textContent="90%以上";document.getElementById("sort-select").value="score";rsOn=false;document.getElementById("rs-toggle").classList.remove("on");document.getElementById("rs-label").textContent="全て表示";const ci=document.getElementById("custom-input");if(ci)ci.value="";volOn=false;const vb=document.getElementById("vol-btn");if(vb){vb.style.background="none";vb.style.color="#8b949e";vb.style.borderColor="#30363d";}ytdOn=false;const yb=document.getElementById("ytd-btn");if(yb){yb.style.background="none";yb.style.color="#8b949e";yb.style.borderColor="#30363d";}applyFilters();}function applyFilters(){const q=document.getElementById("search-input").value.toLowerCase();const ms=parseInt(document.getElementById("score-slider").value);const mh=parseInt(document.getElementById("highpct-slider").value)/100;const sb=document.getElementById("sort-select").value;let d=allData.filter(x=>x.passed&&parseInt(x.score)>=ms);d=d.filter(x=>!x.high52||x.price/x.high52>=mh);if(rsOn)d=d.filter(x=>x.rs26w!=null&&x.rs26w>0);if(ytdOn)d=d.filter(x=>x.ytd_high&&x.price>=x.ytd_high*0.98);if(volOn)d=d.filter(x=>x.vol_ratio!=null&&x.vol_ratio>=1.5);
+<div class="filter-actions"><button class="reset-btn" onclick="resetFilters()">リセット</button><button class="reset-btn" id="vol-btn" onclick="toggleVol()" style="margin-left:4px">出来高急増</button><button class="reset-btn" id="ytd-btn" onclick="toggleYTD()" style="margin-left:4px">年初来高値</button></div></div><div class="section-header"><div class="section-title">PASS銘柄一覧</div><div class="section-count" id="display-count">-</div></div><div id="screening-content"><div class="loading"><div class="spinner"></div><div class="loading-text">データを読み込み中...</div></div></div></div><div class="page" id="page-chart"><div class="coming-soon"><div class="coming-soon-title">週足チャート</div><div class="coming-soon-text">SMA 50/150/200日線チャートを実装予定</div></div></div><div class="page" id="page-fins"><div class="coming-soon"><div class="coming-soon-title">業績分析</div><div class="coming-soon-text">売上・EPS推移グラフを実装予定</div></div></div><div class="page" id="page-portfolio"><div class="coming-soon"><div class="coming-soon-title">ポートフォリオ</div><div class="coming-soon-text">保有株・含み損益管理を実装予定</div></div></div><button class="chat-btn" onclick="toggleChat()" title="AIチャット">&#129302;</button>
+<div class="chat-panel" id="chat-panel">
+  <div class="chat-header">
+    <span class="chat-header-title">&#129302; AI&#12450;&#12471;&#12473;&#12479;&#12531;&#12488;</span>
+    <button class="chat-close" onclick="toggleChat()">&#10005;</button>
+  </div>
+  <div class="chat-messages" id="chat-messages"></div>
+  <div class="chat-suggestions" id="chat-suggestions">
+    <button class="chat-suggestion" onclick="sendSuggestion(this.textContent)">&#20170;&#26085;&#306e7/7&#28452;&#28857;&#39069;&#67 &#12391;RS26w&#24378;&#12356;&#9298;&#26862;&#12399;&#65311;</button>
+    <button class="chat-suggestion" onclick="sendSuggestion(this.textContent)">&#39640;&#20516;&#26356;&#26032;&#22259;&#12391;&#20986;&#26469;&#39640;&#24310;&#12403&#306e&#37327;&#37329;&#12399;&#65311;</button>
+    <button class="chat-suggestion" onclick="sendSuggestion(this.textContent)">&#12521;&#12531;&#12461;&#12531;&#12464;&#19978;&#20301;10&#9298;&#12399;&#12393;&#12428;&#65311;</button>
+  </div>
+  <div class="chat-input-row">
+    <textarea class="chat-input" id="chat-input" placeholder="&#37319;&#26684;&#12395;&#12388;&#12356;&#12390;&#36074;&#21839;..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
+    <button class="chat-send" id="chat-send" onclick="sendChat()">&#36865;&#20449;</button>
+  </div>
+</div>
+<div class="overlay" id="overlay" onclick="closeDetail()"></div><div class="detail-panel" id="detail-panel"><div class="detail-handle"></div><div class="detail-content" id="detail-content"></div></div><script>const DATA_URL="https://raw.githubusercontent.com/yangpinggaoye15-dotcom/invest-data/main/screen_full_results.json";const CLAUDE_API="https://api.anthropic.com/v1/messages";const GEMINI_API="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";let allData=[],rsOn=false,ytdOn=false,curTab="news";const CL=["Price > SMA150/200","SMA150 > SMA200","SMA200 上昇中","SMA50 > SMA150/200","Price > SMA50","Price > 52wLow x1.25","Price > 52wHigh x0.75"];function gk(k){return localStorage.getItem(k)||""}function sk(k,v){localStorage.setItem(k,v)}async function loadData(){try{const r=await fetch(DATA_URL+"?t="+Date.now());if(!r.ok)throw new Error("HTTP "+r.status);const j=await r.json();const m=j["__meta__"]||{};allData=Object.entries(j).filter(([k,v])=>k!=="__meta__"&&!v.error&&v.passed!==undefined).map(([k,v])=>v);const p=allData.filter(x=>x.passed).length,pf=allData.filter(x=>x.score==="7/7").length,nh=allData.filter(x=>x.passed&&x.high52&&x.price>=x.high52*0.95).length;document.getElementById("m-total").textContent=(m.total||allData.length).toLocaleString();document.getElementById("m-pass").textContent=p.toLocaleString();document.getElementById("m-perfect").textContent=pf.toLocaleString();document.getElementById("m-nearhigh").textContent=nh.toLocaleString();document.getElementById("updated").textContent="更新: "+(m.finished_at?m.finished_at.replace("T"," ").slice(0,16):"-");applyFilters();}catch(e){document.getElementById("screening-content").innerHTML='<div class="error-box">読み込み失敗: '+e.message+"</div>";}}function updateLabel(sid,lid,fn){const v=parseInt(document.getElementById(sid).value);document.getElementById(lid).textContent=fn(v);applyFilters();}function toggleRS(){rsOn=!rsOn;document.getElementById("rs-toggle").classList.toggle("on",rsOn);document.getElementById("rs-label").textContent=rsOn?"プラスのみ":"全て表示";applyFilters();}function resetFilters(){document.getElementById("search-input").value="";document.getElementById("score-slider").value=6;document.getElementById("highpct-slider").value=90;document.getElementById("score-val").textContent="6/7以上";document.getElementById("highpct-val").textContent="90%以上";document.getElementById("sort-select").value="score";rsOn=false;document.getElementById("rs-toggle").classList.remove("on");document.getElementById("rs-label").textContent="全て表示";const ci=document.getElementById("custom-input");if(ci)ci.value="";volOn=false;const vb=document.getElementById("vol-btn");if(vb){vb.style.background="none";vb.style.color="#8b949e";vb.style.borderColor="#30363d";}ytdOn=false;const yb=document.getElementById("ytd-btn");if(yb){yb.style.background="none";yb.style.color="#8b949e";yb.style.borderColor="#30363d";}applyFilters();}function applyFilters(){const q=document.getElementById("search-input").value.toLowerCase();const ms=parseInt(document.getElementById("score-slider").value);const mh=parseInt(document.getElementById("highpct-slider").value)/100;const sb=document.getElementById("sort-select").value;let d=allData.filter(x=>x.passed&&parseInt(x.score)>=ms);d=d.filter(x=>!x.high52||x.price/x.high52>=mh);if(rsOn)d=d.filter(x=>x.rs26w!=null&&x.rs26w>0);if(ytdOn)d=d.filter(x=>x.ytd_high&&x.price>=x.ytd_high*0.98);if(volOn)d=d.filter(x=>x.vol_ratio!=null&&x.vol_ratio>=1.5);
   const customExpr=document.getElementById("custom-input")?.value?.trim();
   const errEl=document.getElementById("custom-error");
   if(customExpr){
@@ -109,5 +145,66 @@ function renderPresets(){
 function applyPreset(p){
   const el=document.getElementById("custom-input");
   if(el){el.value=p;applyFilters();}
+}
+let chatHistory=[];
+function toggleChat(){
+  const p=document.getElementById("chat-panel");
+  if(!p) return;
+  p.classList.toggle("open");
+  if(p.classList.contains("open")&&chatHistory.length===0){
+    addChatMsg("ai","こんにちは！投資システムについて何でも聞いてください。\n\n例: 今日のPASS銘柄数は？RS26w強い銘柄は？");
+  }
+}
+function addChatMsg(role, text){
+  const el=document.getElementById("chat-messages");
+  if(!el) return;
+  const div=document.createElement("div");
+  div.className="chat-msg "+role;
+  div.textContent=text;
+  el.appendChild(div);
+  el.scrollTop=el.scrollHeight;
+  return div;
+}
+function sendSuggestion(text){
+  document.getElementById("chat-suggestions").style.display="none";
+  const inp=document.getElementById("chat-input");
+  if(inp) inp.value=text;
+  sendChat();
+}
+async function sendChat(){
+  const inp=document.getElementById("chat-input");
+  const text=inp?.value?.trim();
+  if(!text) return;
+  const key=gk("ck");
+  if(!key){addChatMsg("ai","Claude APIキーが設定されていません。銘柄詳細パネルでAPIキーを入力してください。");return;}
+  inp.value="";
+  addChatMsg("user",text);
+  chatHistory.push({role:"user",content:text});
+  const sendBtn=document.getElementById("chat-send");
+  if(sendBtn) sendBtn.disabled=true;
+  const loadDiv=addChatMsg("ai","分析中...");
+  loadDiv.classList.add("loading");
+  const passCount=allData.filter(x=>x.passed).length;
+  const top5=allData.filter(x=>x.passed).sort((a,b)=>parseInt(b.score)-parseInt(a.score)).slice(0,5).map(x=>x.code+"("+x.name+","+x.score+",RS26w:"+( x.rs26w?.toFixed(2)||"N/A")+")").join(", ");
+  const systemPrompt="あなたはミネルヴィニ流成長株投資の専門AIアシスタントです。\n現在のスクリーニングデータ:\n- 対象銘柄数: "+allData.length+"\n- PASS銘柄数(6/7以上): "+passCount+"\n- 上位5銘柄: "+top5+"\n\nユーザーの質問に日本語で簡潔に答えてください。";
+  try{
+    const res=await fetch("https://api.anthropic.com/v1/messages",{
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:600,system:systemPrompt,messages:chatHistory})
+    });
+    const data=await res.json();
+    if(!res.ok) throw new Error(data.error?.message||"APIエラー");
+    const reply=data.content?.[0]?.text||"回答を取得できませんでした";
+    loadDiv.remove();
+    addChatMsg("ai",reply);
+    chatHistory.push({role:"assistant",content:reply});
+    if(chatHistory.length>20) chatHistory=chatHistory.slice(-20);
+  }catch(e){
+    loadDiv.remove();
+    addChatMsg("ai","エラー: "+e.message);
+  }finally{
+    if(sendBtn) sendBtn.disabled=false;
+  }
 }
 function closeDetail(){document.getElementById("detail-panel").classList.remove("open");document.getElementById("overlay").classList.remove("show");}function showPage(n,btn){document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));document.getElementById("page-"+n).classList.add("active");btn.classList.add("active");}loadData();renderPresets();</script></body></html>
