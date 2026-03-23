@@ -28,7 +28,7 @@ jobs:
       - name: Run screening
         env:
           JQUANTS_API_KEY: ${{ secrets.JQUANTS_API_KEY }}
-        run: python run_screen_full.py --update
+        run: python run_screen_full.py --fresh
 
       - name: Commit and push results
         run: |
