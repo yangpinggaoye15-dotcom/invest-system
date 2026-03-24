@@ -1251,35 +1251,23 @@ def watchlist_screen() -> str:
     return "\n".join(lines)
 
 # ---------------------------------------------------------------------------
-# File editing & Git tools
+# General-purpose file & command tools
 # ---------------------------------------------------------------------------
-
-# Allowed files that can be edited via MCP (safety guard)
-_EDITABLE_FILES = {
-    "run_screen_full.py",
-    "stock_mcp_server.py",
-    "index.html",
-    ".github/workflows/daily_screening.yml",
-}
-
-def _is_editable(rel_path: str) -> bool:
-    """Check if the file is in the allow-list for editing."""
-    normalized = rel_path.replace("\\", "/").lstrip("/")
-    return normalized in _EDITABLE_FILES
-
 
 @mcp.tool()
 def read_file(file_path: str) -> str:
-    """リポジトリ内のファイルを読み取る。
+    """指定パスのファイルを読み取る。
 
     Args:
-        file_path: リポジトリルートからの相対パス (例: "run_screen_full.py")
+        file_path: 絶対パスまたはリポジトリルートからの相対パス
     """
-    target = GITHUB_DIR / file_path
+    target = Path(file_path)
+    if not target.is_absolute():
+        target = GITHUB_DIR / file_path
     if not target.exists():
-        return f"ERROR: File not found: {file_path}"
+        return f"ERROR: File not found: {target}"
     if not target.is_file():
-        return f"ERROR: Not a file: {file_path}"
+        return f"ERROR: Not a file: {target}"
     try:
         return target.read_text(encoding="utf-8")
     except Exception as e:
@@ -1288,63 +1276,54 @@ def read_file(file_path: str) -> str:
 
 @mcp.tool()
 def write_file(file_path: str, content: str) -> str:
-    """リポジトリ内のファイルを上書き保存する。
+    """指定パスにファイルを書き込む（上書き保存）。
 
     Args:
-        file_path: リポジトリルートからの相対パス (例: "run_screen_full.py")
+        file_path: 絶対パスまたはリポジトリルートからの相対パス
         content: ファイルの全内容
     """
-    if not _is_editable(file_path):
-        return (
-            f"ERROR: '{file_path}' is not in the editable allow-list. "
-            f"Allowed: {', '.join(sorted(_EDITABLE_FILES))}"
-        )
-    target = GITHUB_DIR / file_path
+    target = Path(file_path)
+    if not target.is_absolute():
+        target = GITHUB_DIR / file_path
     target.parent.mkdir(parents=True, exist_ok=True)
     try:
         target.write_text(content, encoding="utf-8")
-        return f"OK: Saved {file_path} ({len(content)} chars)"
+        return f"OK: Saved {target} ({len(content)} chars)"
     except Exception as e:
         return f"ERROR: {e}"
 
 
 @mcp.tool()
-def edit_file(file_path: str, old_string: str, new_string: str) -> str:
-    """リポジトリ内のファイルの一部を置換する。
+def run_command(command: str, working_directory: str = "") -> str:
+    """PowerShellコマンドを実行して結果を返す。
 
     Args:
-        file_path: リポジトリルートからの相対パス
-        old_string: 置換対象の文字列（ファイル内でユニークであること）
-        new_string: 置換後の文字列
+        command: 実行するPowerShellコマンド
+        working_directory: 作業ディレクトリ（空ならリポジトリルート）
     """
-    if not _is_editable(file_path):
-        return (
-            f"ERROR: '{file_path}' is not in the editable allow-list. "
-            f"Allowed: {', '.join(sorted(_EDITABLE_FILES))}"
+    cwd = working_directory if working_directory else str(GITHUB_DIR)
+    try:
+        result = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", command],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=300,
         )
-    target = GITHUB_DIR / file_path
-    if not target.exists():
-        return f"ERROR: File not found: {file_path}"
-    text = target.read_text(encoding="utf-8")
-    count = text.count(old_string)
-    if count == 0:
-        return "ERROR: old_string not found in file"
-    if count > 1:
-        return f"ERROR: old_string found {count} times (must be unique)"
-    new_text = text.replace(old_string, new_string, 1)
-    target.write_text(new_text, encoding="utf-8")
-    return f"OK: Replaced 1 occurrence in {file_path}"
-
-
-@mcp.tool()
-def list_files() -> str:
-    """リポジトリ内の主要ファイル一覧を返す。"""
-    lines = []
-    for p in sorted(GITHUB_DIR.rglob("*")):
-        if p.is_file() and ".git" not in p.parts:
-            rel = p.relative_to(GITHUB_DIR)
-            lines.append(str(rel))
-    return "\n".join(lines) if lines else "No files found"
+        output = result.stdout.strip()
+        err = result.stderr.strip()
+        parts = []
+        if output:
+            parts.append(output)
+        if err:
+            parts.append(f"[STDERR]\n{err}")
+        if result.returncode != 0:
+            parts.insert(0, f"[EXIT CODE: {result.returncode}]")
+        return "\n".join(parts) if parts else "(no output)"
+    except subprocess.TimeoutExpired:
+        return "ERROR: Command timed out (300s limit)"
+    except Exception as e:
+        return f"ERROR: {e}"
 
 
 def _git(*args: str) -> str:
