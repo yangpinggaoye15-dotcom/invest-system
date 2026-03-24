@@ -15,6 +15,7 @@ Features:
 """
 
 import sqlite3
+import subprocess
 import os
 import time
 import json
@@ -43,6 +44,8 @@ RESULTS_FILE   = BASE_DIR / "data" / "screen_full_results.json"
 MASTER_CACHE   = BASE_DIR / "data" / "equity_master_cache.json"
 PORTFOLIO_FILE = BASE_DIR / "data" / "portfolio.json"
 WATCHLIST_FILE = BASE_DIR / "data" / "watchlist.json"
+
+GITHUB_DIR = Path(r"C:\Users\yohei\Documents\invest-system-github")
 
 MASTER_CACHE_TTL_DAYS = 7
 BATCH_SIZE        = 50
@@ -1246,6 +1249,184 @@ def watchlist_screen() -> str:
             lines.append(f"  {code:<6}  ERROR: {e}")
 
     return "\n".join(lines)
+
+# ---------------------------------------------------------------------------
+# File editing & Git tools
+# ---------------------------------------------------------------------------
+
+# Allowed files that can be edited via MCP (safety guard)
+_EDITABLE_FILES = {
+    "run_screen_full.py",
+    "stock_mcp_server.py",
+    "index.html",
+    ".github/workflows/daily_screening.yml",
+}
+
+def _is_editable(rel_path: str) -> bool:
+    """Check if the file is in the allow-list for editing."""
+    normalized = rel_path.replace("\\", "/").lstrip("/")
+    return normalized in _EDITABLE_FILES
+
+
+@mcp.tool()
+def read_file(file_path: str) -> str:
+    """リポジトリ内のファイルを読み取る。
+
+    Args:
+        file_path: リポジトリルートからの相対パス (例: "run_screen_full.py")
+    """
+    target = GITHUB_DIR / file_path
+    if not target.exists():
+        return f"ERROR: File not found: {file_path}"
+    if not target.is_file():
+        return f"ERROR: Not a file: {file_path}"
+    try:
+        return target.read_text(encoding="utf-8")
+    except Exception as e:
+        return f"ERROR: {e}"
+
+
+@mcp.tool()
+def write_file(file_path: str, content: str) -> str:
+    """リポジトリ内のファイルを上書き保存する。
+
+    Args:
+        file_path: リポジトリルートからの相対パス (例: "run_screen_full.py")
+        content: ファイルの全内容
+    """
+    if not _is_editable(file_path):
+        return (
+            f"ERROR: '{file_path}' is not in the editable allow-list. "
+            f"Allowed: {', '.join(sorted(_EDITABLE_FILES))}"
+        )
+    target = GITHUB_DIR / file_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        target.write_text(content, encoding="utf-8")
+        return f"OK: Saved {file_path} ({len(content)} chars)"
+    except Exception as e:
+        return f"ERROR: {e}"
+
+
+@mcp.tool()
+def edit_file(file_path: str, old_string: str, new_string: str) -> str:
+    """リポジトリ内のファイルの一部を置換する。
+
+    Args:
+        file_path: リポジトリルートからの相対パス
+        old_string: 置換対象の文字列（ファイル内でユニークであること）
+        new_string: 置換後の文字列
+    """
+    if not _is_editable(file_path):
+        return (
+            f"ERROR: '{file_path}' is not in the editable allow-list. "
+            f"Allowed: {', '.join(sorted(_EDITABLE_FILES))}"
+        )
+    target = GITHUB_DIR / file_path
+    if not target.exists():
+        return f"ERROR: File not found: {file_path}"
+    text = target.read_text(encoding="utf-8")
+    count = text.count(old_string)
+    if count == 0:
+        return "ERROR: old_string not found in file"
+    if count > 1:
+        return f"ERROR: old_string found {count} times (must be unique)"
+    new_text = text.replace(old_string, new_string, 1)
+    target.write_text(new_text, encoding="utf-8")
+    return f"OK: Replaced 1 occurrence in {file_path}"
+
+
+@mcp.tool()
+def list_files() -> str:
+    """リポジトリ内の主要ファイル一覧を返す。"""
+    lines = []
+    for p in sorted(GITHUB_DIR.rglob("*")):
+        if p.is_file() and ".git" not in p.parts:
+            rel = p.relative_to(GITHUB_DIR)
+            lines.append(str(rel))
+    return "\n".join(lines) if lines else "No files found"
+
+
+def _git(*args: str) -> str:
+    """Run a git command in the GitHub repo directory."""
+    result = subprocess.run(
+        ["git"] + list(args),
+        cwd=str(GITHUB_DIR),
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    output = result.stdout.strip()
+    if result.returncode != 0:
+        err = result.stderr.strip()
+        return f"ERROR (exit {result.returncode}): {err}\n{output}".strip()
+    return output or "(no output)"
+
+
+@mcp.tool()
+def git_status() -> str:
+    """git statusを実行して現在の変更状況を返す。"""
+    return _git("status", "--short")
+
+
+@mcp.tool()
+def git_diff(file_path: str = "") -> str:
+    """git diffを実行して変更差分を返す。
+
+    Args:
+        file_path: 特定ファイルのdiffのみ表示（空なら全体）
+    """
+    args = ["diff"]
+    if file_path:
+        args.append(file_path)
+    return _git(*args)
+
+
+@mcp.tool()
+def git_commit_and_push(message: str) -> str:
+    """変更をコミットしてGitHubにpushする。
+
+    Args:
+        message: コミットメッセージ
+    """
+    # Stage all tracked changes
+    add_result = _git("add", "-A")
+    if add_result.startswith("ERROR"):
+        return f"git add failed: {add_result}"
+
+    # Check if there's anything to commit
+    status = _git("status", "--porcelain")
+    if not status or status == "(no output)":
+        return "Nothing to commit"
+
+    # Commit
+    commit_result = _git("commit", "-m", message)
+    if commit_result.startswith("ERROR"):
+        return f"git commit failed: {commit_result}"
+
+    # Push
+    push_result = _git("push", "origin", "main")
+    if push_result.startswith("ERROR"):
+        # Try pull --rebase then push
+        rebase_result = _git("pull", "--rebase", "origin", "main")
+        if rebase_result.startswith("ERROR"):
+            return f"git pull --rebase failed: {rebase_result}"
+        push_result = _git("push", "origin", "main")
+        if push_result.startswith("ERROR"):
+            return f"git push failed (after rebase): {push_result}"
+
+    return f"OK: Committed and pushed to main\n\n{commit_result}"
+
+
+@mcp.tool()
+def git_log(n: int = 5) -> str:
+    """直近のコミット履歴を表示する。
+
+    Args:
+        n: 表示するコミット数（デフォルト5）
+    """
+    return _git("log", f"--oneline", f"-{n}")
+
 
 # ---------------------------------------------------------------------------
 # Entry point
