@@ -1743,6 +1743,82 @@ def screen_patterns(min_score: int = 6) -> str:
     return "\n".join(lines)
 
 
+@mcp.tool()
+def export_chart_data() -> str:
+    """サイト用にPASS銘柄の日足OHLCVとパターン検出結果をJSONエクスポートする。
+
+    screen_full結果のPASS銘柄について:
+    - 日足OHLCV（CSVから読み込み、APIコストなし）
+    - パターン検出結果（Cup with Handle / VCP / Flat Base）
+    をJSON形式でGitHubリポジトリに保存。invest-dataにpushすればサイトに反映。
+    """
+    if not RESULTS_FILE.exists():
+        return "ERROR: screen_full results not found. Run screen_full first."
+
+    data = json.loads(RESULTS_FILE.read_text(encoding="utf-8"))
+    pass_codes = []
+    for item in data:
+        if isinstance(item, dict) and item.get("code") and item.get("minervini"):
+            if item["minervini"].get("passed"):
+                pass_codes.append(item["code"])
+
+    if not pass_codes:
+        return "No PASS stocks found"
+
+    chart_data = {}
+    pattern_data = {}
+    exported = 0
+    patterns_found = 0
+
+    for code in pass_codes:
+        df = _load_daily_csv(code)
+        if df.empty:
+            continue
+
+        # Daily OHLCV for chart
+        records = []
+        for date, row in df.iterrows():
+            records.append({
+                "time": date.strftime("%Y-%m-%d"),
+                "open": round(float(row["open"]), 1),
+                "high": round(float(row["high"]), 1),
+                "low": round(float(row["low"]), 1),
+                "close": round(float(row["close"]), 1),
+                "volume": int(row["volume"]),
+            })
+        chart_data[code] = records
+        exported += 1
+
+        # Pattern detection
+        patterns = _detect_all_patterns(df)
+        detected = [k for k, v in patterns.items() if v.get("detected")]
+        if detected:
+            pattern_data[code] = {
+                "patterns": detected,
+                "details": {k: v for k, v in patterns.items() if v.get("detected")},
+            }
+            patterns_found += 1
+
+    # Save chart data
+    chart_path = GITHUB_DIR / "chart_data.json"
+    chart_path.write_text(
+        json.dumps(chart_data, ensure_ascii=False), encoding="utf-8"
+    )
+
+    # Save pattern data
+    pat_path = GITHUB_DIR / "pattern_data.json"
+    pat_path.write_text(
+        json.dumps(pattern_data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+    return (
+        f"OK: Exported {exported} stocks\n"
+        f"  Chart data: {chart_path} ({chart_path.stat().st_size // 1024} KB)\n"
+        f"  Pattern data: {pat_path} (patterns found: {patterns_found})\n"
+        f"Push to invest-data repo to update the site."
+    )
+
+
 # ---------------------------------------------------------------------------
 # General-purpose file & command tools
 # ---------------------------------------------------------------------------
