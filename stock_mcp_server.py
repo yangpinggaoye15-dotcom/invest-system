@@ -1676,13 +1676,19 @@ def screen_patterns(min_score: int = 6) -> str:
         return "ERROR: screen_full results not found. Run screen_full first."
 
     data = json.loads(RESULTS_FILE.read_text(encoding="utf-8"))
+    # Build lookup: code -> item
+    items = data.values() if isinstance(data, dict) else data
+    lookup = {}
+    for item in items:
+        if isinstance(item, dict) and item.get("code"):
+            lookup[item["code"]] = item
+
     candidates = []
-    for item in data:
-        if isinstance(item, dict) and item.get("code") and item.get("minervini"):
-            score_str = item["minervini"].get("score", "0/7")
-            score = int(score_str.split("/")[0])
-            if score >= min_score:
-                candidates.append(item["code"])
+    for code, item in lookup.items():
+        score_str = item.get("score", "0/7")
+        score = int(score_str.split("/")[0])
+        if score >= min_score:
+            candidates.append(code)
 
     if not candidates:
         return f"No stocks with score >= {min_score}"
@@ -1695,16 +1701,11 @@ def screen_patterns(min_score: int = 6) -> str:
             continue
         patterns = _detect_all_patterns(df)
         detected = [k for k, v in patterns.items() if v.get("detected")]
+        item = lookup.get(code, {})
         all_results.append({
             "code": code,
-            "name": next(
-                (i.get("name", "") for i in data
-                 if isinstance(i, dict) and i.get("code") == code), ""
-            ),
-            "score": next(
-                (i["minervini"]["score"] for i in data
-                 if isinstance(i, dict) and i.get("code") == code), ""
-            ),
+            "name": item.get("name", ""),
+            "score": item.get("score", ""),
             "patterns": detected,
             "details": {k: v for k, v in patterns.items() if v.get("detected")},
         })
@@ -1744,23 +1745,41 @@ def screen_patterns(min_score: int = 6) -> str:
 
 
 @mcp.tool()
-def export_chart_data() -> str:
-    """サイト用にPASS銘柄の日足OHLCVとパターン検出結果をJSONエクスポートする。
+def export_chart_data(min_score: int = 7, max_days: int = 200) -> str:
+    """サイト用に高スコア銘柄の日足OHLCVとパターン検出結果をJSONエクスポートする。
 
-    screen_full結果のPASS銘柄について:
-    - 日足OHLCV（CSVから読み込み、APIコストなし）
+    screen_full結果のスコアmin_score以上の銘柄について:
+    - 日足OHLCV（CSVがあればCSVから、なければAPIから取得）
     - パターン検出結果（Cup with Handle / VCP / Flat Base）
     をJSON形式でGitHubリポジトリに保存。invest-dataにpushすればサイトに反映。
+
+    Args:
+        min_score: 最低スコア（デフォルト7、全PASS銘柄なら6）
+        max_days: チャートに含める最大日数（デフォルト200）
     """
     if not RESULTS_FILE.exists():
         return "ERROR: screen_full results not found. Run screen_full first."
 
     data = json.loads(RESULTS_FILE.read_text(encoding="utf-8"))
     pass_codes = []
-    for item in data:
-        if isinstance(item, dict) and item.get("code") and item.get("minervini"):
-            if item["minervini"].get("passed"):
-                pass_codes.append(item["code"])
+    # Support both dict format {"code": {...}} and list format [{...}]
+    items = data.values() if isinstance(data, dict) else data
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        code = item.get("code", "")
+        if not code:
+            continue
+        # Get score
+        score_str = item.get("score", "0/7")
+        if isinstance(item.get("minervini"), dict):
+            score_str = item["minervini"].get("score", score_str)
+        try:
+            score_val = int(score_str.split("/")[0])
+        except (ValueError, IndexError):
+            continue
+        if score_val >= min_score:
+            pass_codes.append(code)
 
     if not pass_codes:
         return "No PASS stocks found"
@@ -1770,21 +1789,37 @@ def export_chart_data() -> str:
     exported = 0
     patterns_found = 0
 
+    api_fetched = 0
     for code in pass_codes:
         df = _load_daily_csv(code)
         if df.empty:
-            continue
+            # Fallback: fetch from API
+            try:
+                bars = _fetch_daily(code)
+                if not bars:
+                    continue
+                df = _daily_to_df(bars)
+                # Save CSV for future use
+                CSV_DIR.mkdir(parents=True, exist_ok=True)
+                df.reset_index().to_csv(
+                    CSV_DIR / f"{code}_daily.csv", index=False
+                )
+                api_fetched += 1
+                time.sleep(REQUEST_SLEEP_SEC)
+            except Exception:
+                continue
 
-        # Daily OHLCV for chart
+        # Daily OHLCV for chart (truncate to max_days)
+        df_clean = df.dropna(subset=["open", "high", "low", "close"]).tail(max_days)
         records = []
-        for date, row in df.iterrows():
+        for date, row in df_clean.iterrows():
             records.append({
                 "time": date.strftime("%Y-%m-%d"),
                 "open": round(float(row["open"]), 1),
                 "high": round(float(row["high"]), 1),
                 "low": round(float(row["low"]), 1),
                 "close": round(float(row["close"]), 1),
-                "volume": int(row["volume"]),
+                "volume": int(row["volume"]) if pd.notna(row["volume"]) else 0,
             })
         chart_data[code] = records
         exported += 1
@@ -1812,7 +1847,7 @@ def export_chart_data() -> str:
     )
 
     return (
-        f"OK: Exported {exported} stocks\n"
+        f"OK: Exported {exported} stocks (API fetched: {api_fetched})\n"
         f"  Chart data: {chart_path} ({chart_path.stat().st_size // 1024} KB)\n"
         f"  Pattern data: {pat_path} (patterns found: {patterns_found})\n"
         f"Push to invest-data repo to update the site."
