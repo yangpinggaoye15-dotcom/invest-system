@@ -2086,6 +2086,68 @@ def export_site_data() -> str:
     return "OK: Copied to GITHUB_DIR\n" + "\n".join(copied)
 
 
+KNOWLEDGE_DIR = GITHUB_DIR / "knowledge"
+
+
+@mcp.tool()
+def save_knowledge(code: str, text: str, category: str = "general") -> str:
+    """銘柄のナレッジ（学習事項）をファイルに保存する。
+
+    AIへの質問時に過去ナレッジとして参照される。
+
+    Args:
+        code: 4桁銘柄コード
+        text: ナレッジ内容
+        category: カテゴリ（general/news/plan/analysis/backtest）
+    """
+    KNOWLEDGE_DIR.mkdir(parents=True, exist_ok=True)
+    kl_path = KNOWLEDGE_DIR / f"{code}.json"
+    entries = []
+    if kl_path.exists():
+        try:
+            entries = json.loads(kl_path.read_text(encoding="utf-8"))
+        except Exception:
+            entries = []
+
+    entries.insert(0, {
+        "date": datetime.now().strftime("%Y-%m-%d"),
+        "category": category,
+        "text": text[:1000],
+    })
+    # Keep max 20 per stock
+    entries = entries[:20]
+
+    kl_path.write_text(
+        json.dumps(entries, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    return f"OK: Knowledge saved for {code} ({len(entries)} entries)"
+
+
+@mcp.tool()
+def export_knowledge() -> str:
+    """ナレッジデータをサイト用にエクスポートする。
+
+    knowledge/*.json を1つの knowledge_data.json にまとめる。
+    invest-dataにpushすればAI質問時に参照される。
+    """
+    KNOWLEDGE_DIR.mkdir(parents=True, exist_ok=True)
+    all_kl = {}
+    for kl_file in KNOWLEDGE_DIR.glob("*.json"):
+        code = kl_file.stem
+        try:
+            entries = json.loads(kl_file.read_text(encoding="utf-8"))
+            if entries:
+                all_kl[code] = entries
+        except Exception:
+            pass
+
+    kl_path = GITHUB_DIR / "knowledge_data.json"
+    kl_path.write_text(
+        json.dumps(all_kl, ensure_ascii=False), encoding="utf-8"
+    )
+    return f"OK: Exported knowledge for {len(all_kl)} stocks to {kl_path}"
+
+
 @mcp.tool()
 def export_fins_data(extra_codes: str = "", ytd_near_pct: float = 0.98) -> str:
     """年初来高値圏+監視+ポートフォリオ銘柄の業績データをJSONエクスポートする。

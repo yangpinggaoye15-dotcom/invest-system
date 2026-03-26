@@ -73,14 +73,25 @@
     <div class="loading"><div class="loading-text">銘柄コードを入力してください</div></div>
   </div>
   <div id="sim-section" style="display:none;padding:12px 14px;border-top:2px solid #f0b429">
-    <div class="fins-section-title" style="margin-bottom:12px">業績・株価シミュレーション</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
-      <div><label style="font-size:11px;color:#8b949e">売上成長率 (%)</label><input id="sim-growth" type="number" value="10" step="1" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:6px 10px;color:#e6edf3;font-size:13px;margin-top:4px" oninput="runSim()"></div>
-      <div><label style="font-size:11px;color:#8b949e">営業利益率 (%)</label><input id="sim-opmargin" type="number" value="15" step="1" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:6px 10px;color:#e6edf3;font-size:13px;margin-top:4px" oninput="runSim()"></div>
-      <div><label style="font-size:11px;color:#8b949e">純利益率 (%)</label><input id="sim-npmargin" type="number" value="10" step="1" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:6px 10px;color:#e6edf3;font-size:13px;margin-top:4px" oninput="runSim()"></div>
-      <div><label style="font-size:11px;color:#8b949e">目標PER (倍)</label><input id="sim-per" type="number" value="20" step="1" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:6px 10px;color:#e6edf3;font-size:13px;margin-top:4px" oninput="runSim()"></div>
-      <div><label style="font-size:11px;color:#8b949e">シミュレーション年数</label><input id="sim-years" type="number" value="3" min="1" max="5" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:6px 10px;color:#e6edf3;font-size:13px;margin-top:4px" oninput="runSim()"></div>
-      <div style="display:flex;flex-direction:column;gap:4px;margin-top:14px"><button onclick="saveSim()" style="padding:8px;background:#30363d;border:1px solid #f0b429;border-radius:6px;color:#f0b429;cursor:pointer;font-size:12px">設定を保存</button><button onclick="aiSim()" style="padding:8px;background:#1a73e8;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:12px">AI中期計画ベース</button><button onclick="runBacktest()" style="padding:8px;background:#0d1117;border:1px solid #58a6ff;border-radius:6px;color:#58a6ff;cursor:pointer;font-size:12px">業績予想バックテスト</button></div>
+    <div class="fins-section-title" style="margin-bottom:8px">業績・株価シミュレーション</div>
+    <div style="font-size:11px;color:#8b949e;margin-bottom:10px">KPIを分解して合理的な根拠に基づいた予測を設定できます</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+      <div style="grid-column:span 3;font-size:11px;color:#f0b429;font-weight:600;margin-top:4px">売上高</div>
+      <div><label style="font-size:10px;color:#8b949e">売上成長率 (%)</label><input id="sim-growth" type="number" value="10" step="0.5" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:5px 8px;color:#e6edf3;font-size:12px;margin-top:2px" oninput="runSim()"></div>
+      <div><label style="font-size:10px;color:#8b949e">平均単価 (万円)</label><input id="sim-unit-price" type="number" value="0" step="1" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:5px 8px;color:#e6edf3;font-size:12px;margin-top:2px" oninput="runSim()"></div>
+      <div><label style="font-size:10px;color:#8b949e">販売数量 (万個)</label><input id="sim-volume" type="number" value="0" step="1" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:5px 8px;color:#e6edf3;font-size:12px;margin-top:2px" oninput="runSim()"></div>
+      <div style="grid-column:span 3;font-size:11px;color:#f0b429;font-weight:600;margin-top:4px">利益構造</div>
+      <div><label style="font-size:10px;color:#8b949e">営業利益率 (%)</label><input id="sim-opmargin" type="number" value="15" step="0.5" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:5px 8px;color:#e6edf3;font-size:12px;margin-top:2px" oninput="runSim()"></div>
+      <div><label style="font-size:10px;color:#8b949e">純利益率 (%)</label><input id="sim-npmargin" type="number" value="10" step="0.5" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:5px 8px;color:#e6edf3;font-size:12px;margin-top:2px" oninput="runSim()"></div>
+      <div><label style="font-size:10px;color:#8b949e">原価率 (%)</label><input id="sim-cogs" type="number" value="60" step="1" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:5px 8px;color:#e6edf3;font-size:12px;margin-top:2px" oninput="runSim()"></div>
+      <div style="grid-column:span 3;font-size:11px;color:#f0b429;font-weight:600;margin-top:4px">コスト要素</div>
+      <div><label style="font-size:10px;color:#8b949e">従業員数 (人)</label><input id="sim-headcount" type="number" value="0" step="100" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:5px 8px;color:#e6edf3;font-size:12px;margin-top:2px" oninput="runSim()"></div>
+      <div><label style="font-size:10px;color:#8b949e">1人当たり人件費 (万円)</label><input id="sim-salary" type="number" value="0" step="10" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:5px 8px;color:#e6edf3;font-size:12px;margin-top:2px" oninput="runSim()"></div>
+      <div><label style="font-size:10px;color:#8b949e">設備投資 (億円)</label><input id="sim-capex" type="number" value="0" step="10" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:5px 8px;color:#e6edf3;font-size:12px;margin-top:2px"></div>
+      <div style="grid-column:span 3;font-size:11px;color:#f0b429;font-weight:600;margin-top:4px">バリュエーション</div>
+      <div><label style="font-size:10px;color:#8b949e">目標PER (倍)</label><input id="sim-per" type="number" value="20" step="1" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:5px 8px;color:#e6edf3;font-size:12px;margin-top:2px" oninput="runSim()"></div>
+      <div><label style="font-size:10px;color:#8b949e">シミュレーション年数</label><input id="sim-years" type="number" value="3" min="1" max="5" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:5px 8px;color:#e6edf3;font-size:12px;margin-top:2px" oninput="runSim()"></div>
+      <div style="display:flex;flex-direction:column;gap:3px;margin-top:12px"><button onclick="saveSim()" style="padding:6px;background:#30363d;border:1px solid #f0b429;border-radius:6px;color:#f0b429;cursor:pointer;font-size:11px">保存</button><button onclick="aiSim()" style="padding:6px;background:#1a73e8;border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:11px">AI中期計画</button><button onclick="runBacktest()" style="padding:6px;background:#0d1117;border:1px solid #58a6ff;border-radius:6px;color:#58a6ff;cursor:pointer;font-size:11px">バックテスト</button></div>
     </div>
     <div id="sim-result"></div>
   </div>
@@ -96,6 +107,12 @@
 </div>
 <div class="page" id="page-portfolio">
 <div class="section-header"><div class="section-title">ポートフォリオ</div><div class="section-count" id="pf-count">-</div></div>
+<div style="padding:10px 14px;display:flex;gap:8px;align-items:center;border-bottom:1px solid #21262d">
+  <span style="font-size:11px;color:#8b949e;white-space:nowrap">資金残高:</span>
+  <input id="pf-cash" type="number" placeholder="0" style="width:120px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:6px 10px;color:#f0b429;font-size:14px;font-weight:600" onchange="saveCash()">
+  <span style="font-size:11px;color:#8b949e">円</span>
+  <span id="pf-total" style="font-size:12px;color:#e6edf3;margin-left:auto"></span>
+</div>
 <div style="padding:10px 14px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #21262d">
   <input id="pf-add-code" type="text" placeholder="コード" style="width:70px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:6px 10px;color:#e6edf3;font-size:13px">
   <input id="pf-add-shares" type="number" placeholder="株数" style="width:70px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:6px 10px;color:#e6edf3;font-size:13px">
@@ -139,22 +156,30 @@ const pat=window._patternData||{};const sp=pat[s.code];const pb=sp&&sp.patterns&
 const tld=window._timeline||{};const stl=tld[s.code]||{};const ytdDate=stl.ytd_high_date?(stl.ytd_high_date.slice(5)):'-';const ytdNear=s.ytd_high&&s.price>=s.ytd_high*0.98;
 h+='<tr onclick="showDetail('+i+')"><td class="code">'+s.code+'</td><td class="name">'+(s.name||"-")+'</td><td><div class="dots">'+dots+'</div></td><td>'+pb+'</td><td style="font-size:11px;color:'+(ytdNear?'#f0b429':'#8b949e')+'">'+ytdDate+'</td><td class="r price-val">'+Number(s.price).toLocaleString()+'</td><td class="r"><span class="'+pc+'">'+ps+'</span></td><td class="r"><span class="'+cpClass+'">'+cp+'</span></td><td class="r"><span class="'+vrClass+'">'+vr+'</span></td><td class="r"><span class="'+rc(s.rs6w)+'">'+rs(s.rs6w)+'</span></td><td class="r"><span class="'+rc(s.rs26w)+'">'+rs(s.rs26w)+'</span></td></tr>';});document.getElementById("screening-content").innerHTML=h+"</tbody></table></div>";window._fd=data;}function showDetail(idx){const s=(window._fd||[])[idx];if(!s)return;const hp=s.high52?(s.price/s.high52*100).toFixed(1)+"%":"-",rs=v=>v==null?"N/A":(v>0?"+":"")+v.toFixed(2),rc=v=>v==null?"muted":v>0?"green":"red",cc=(s.conditions||[]).map((p,i)=>'<div class="cond"><div class="cond-icon '+(p?"pass":"fail")+'">'+(p?"&#10003;":"&#10007;")+'</div><div class="cond-text">'+(CL[i]||"")+"</div></div>").join("");const dpat=window._patternData||{};const dsp=dpat[s.code];const patHtml=dsp&&dsp.patterns&&dsp.patterns.length?'<div style="margin:8px 0 12px">'+dsp.patterns.map(function(p){var cls=p==="cup_with_handle"?"pattern-cup":p==="vcp"?"pattern-vcp":"pattern-flat";var lbl=p==="cup_with_handle"?"Cup with Handle":p==="vcp"?"VCP":"Flat Base";var det=dsp.details[p]||{};var conf=det.confidence?(Math.round(det.confidence*100)+"%"):"";var reason=det.reason||"";var extra=reason||( p==="cup_with_handle"&&det.details?"Pivot: "+Number(det.details.pivot_price||0).toLocaleString()+" / 深さ: "+det.details.cup_depth_pct+"%":p==="vcp"&&det.details?"収縮: "+det.details.contractions+"回 / レンジ: "+det.details.current_range_pct+"%":p==="flat_base"&&det.details?"期間: "+det.details.length_days+"日 / レンジ: "+det.details.range_pct+"%":"");return'<div style="background:#0d1117;border-radius:8px;padding:10px 12px;margin-bottom:6px"><span class="pattern-badge '+cls+'" style="font-size:12px;padding:3px 8px">'+lbl+'</span> <span style="color:#8b949e;font-size:11px;margin-left:6px">信頼度: '+conf+'</span><div style="font-size:11px;color:#e6edf3;margin-top:4px">'+extra+'</div></div>';}).join("")+'</div>':'';
 const tl2=window._timeline||{};const stl2=tl2[s.code]||{};
-document.getElementById("detail-content").innerHTML='<div class="detail-title">'+(s.name||s.code)+'</div><div class="detail-code">'+s.code+" | スコア "+s.score+" | 高値比 "+hp+(stl2.ytd_high_date?' | YTD高値: '+Number(stl2.ytd_high_price||0).toLocaleString()+'円 ('+stl2.ytd_high_date+')':'')+'</div>'+patHtml+'<div class="detail-grid"><div class="detail-card"><div class="detail-card-label">株価</div><div class="detail-card-value">'+Number(s.price).toLocaleString()+'</div></div><div class="detail-card"><div class="detail-card-label">52週高値</div><div class="detail-card-value gold">'+Number(s.high52||0).toLocaleString()+'</div></div><div class="detail-card"><div class="detail-card-label">RS6w</div><div class="detail-card-value '+rc(s.rs6w)+'">'+rs(s.rs6w)+'</div></div><div class="detail-card"><div class="detail-card-label">RS26w</div><div class="detail-card-value '+rc(s.rs26w)+'">'+rs(s.rs26w)+'</div></div></div><div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">7条件チェック</div><div class="conditions-grid">'+cc+'</div><div class="ai-section"><div class="ai-section-title">AI&#20998;&#26512;</div><div class="ai-key-setup"><div class="ai-key-label">Gemini API&#12461;&#12540;&#65288;&#19968;&#24230;&#20837;&#21147;&#12377;&#12428;&#12400;&#20445;&#23384;&#12373;&#12428;&#12414;&#12377;&#65289;</div><input class="ai-key-input" id="gk-input" type="password" placeholder="AIza..." value="'+gk("gk")+'" onchange="sk(\'gk\',this.value)"></div><div class="ai-key-setup"><div class="ai-key-label">Claude API&#12461;&#12540;</div><input class="ai-key-input" id="ck-input" type="password" placeholder="sk-ant-..." value="'+gk("ck")+'" onchange="sk(\'ck\',this.value)"></div><div class="ai-tabs"><div class="ai-tab active" id="tab-news" onclick="swTab(\'news\')">&#128240; ニュース</div><div class="ai-tab" id="tab-trend" onclick="swTab(\'trend\')">&#128200; 動向</div><div class="ai-tab" id="tab-judge" onclick="swTab(\'judge\')">&#127919; 判定</div><div class="ai-tab" id="tab-overview" onclick="swTab(\'overview\')">&#127970; 概要</div><div class="ai-tab" id="tab-plan" onclick="swTab(\'plan\')">&#128203; 中期計画</div><div class="ai-tab" id="tab-free" onclick="swTab(\'free\')">&#9997; 自由</div></div><div style="margin:8px 0"><textarea class="memo-area" id="ai-free-input" placeholder="自由に質問を入力..." style="height:40px;display:none"></textarea></div><div class="ai-loading" id="ai-loading"><div class="ai-spinner"></div>分析中...</div><div class="ai-error" id="ai-error"></div><div class="ai-result" id="ai-result"></div><button class="ai-btn gemini" id="btn-g" onclick="runG(\''+s.code+'\',\''+(s.name||s.code).replace(/'/g,"")+'\')">\u2736 Geminiで検索・分析</button><button class="ai-btn claude" id="btn-c" onclick="runC(\''+s.code+'\',\''+(s.name||s.code).replace(/'/g,"")+'\',\''+s.score+'\',\''+hp+'\',\''+rs(s.rs26w)+'\')">&#9670; Claudeで分析</button><div style="margin-top:6px"><button onclick="saveKnowledge(\''+s.code+'\')" style="background:none;border:1px solid #30363d;color:#8b949e;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px">&#128218; この回答をナレッジに保存</button></div></div><div class="ai-history"><div class="ai-history-title">&#23653;&#27508; (&#26368;&#22810;5&#20214;)</div><div id="ai-history-list"></div></div><div style="margin-top:12px;border-top:1px solid #30363d;padding-top:12px"><div class="memo-label">メモ</div><textarea class="memo-area" id="detail-memo" onchange="saveMemo(\''+s.code+'\',this.value)" placeholder="メモを入力...">'+getMemo(s.code)+'</textarea></div><button class="close-btn" style="background:#1a2a3a;border-color:#58a6ff;color:#58a6ff;margin-bottom:6px" onclick="closeDetail();openChart(\''+s.code+'\')">&#128202; ローソク足チャートを表示</button><button class="close-btn" style="background:#1a2a0d;border-color:#f0b429;color:#f0b429;margin-bottom:6px" onclick="closeDetail();openFins(\''+s.code+'\')">&#128200; 業績を表示</button><button class="close-btn" onclick="closeDetail()">&#38281;&#12376;&#12427;</button>';curTab="news";document.getElementById("detail-panel").classList.add("open");setTimeout(()=>renderAIHistory(s.code),100);document.getElementById("overlay").classList.add("show");}function swTab(t){curTab=t;document.querySelectorAll(".ai-tab").forEach(x=>x.classList.remove("active"));var tabEl=document.getElementById("tab-"+t);if(tabEl)tabEl.classList.add("active");const r=document.getElementById("ai-result");if(r){r.classList.remove("show");r.textContent="";}var fi=document.getElementById("ai-free-input");if(fi)fi.style.display=t==="free"?"block":"none";}function aiLoad(on){const l=document.getElementById("ai-loading"),g=document.getElementById("btn-g"),c=document.getElementById("btn-c");if(l)l.className="ai-loading"+(on?" show":"");if(g)g.disabled=on;if(c)c.disabled=on;if(on){const r=document.getElementById("ai-result"),e=document.getElementById("ai-error");if(r)r.classList.remove("show");if(e)e.classList.remove("show");}}function aiShow(txt,code,tab,model){const r=document.getElementById("ai-result");if(r){r.textContent=txt;r.classList.add("show");}if(code&&tab&&model){saveAIHistory(code,tab,model,txt);renderAIHistory(code);}}function aiErr(msg){const e=document.getElementById("ai-error");if(e){e.textContent=msg;e.classList.add("show");}aiLoad(false);}function getKnowledge(code){try{return JSON.parse(localStorage.getItem("knowledge_"+code)||"[]");}catch(e){return [];}}
+document.getElementById("detail-content").innerHTML='<div class="detail-title">'+(s.name||s.code)+'</div><div class="detail-code">'+s.code+" | スコア "+s.score+" | 高値比 "+hp+(stl2.ytd_high_date?' | YTD高値: '+Number(stl2.ytd_high_price||0).toLocaleString()+'円 ('+stl2.ytd_high_date+')':'')+'</div>'+patHtml+'<div class="detail-grid"><div class="detail-card"><div class="detail-card-label">株価</div><div class="detail-card-value">'+Number(s.price).toLocaleString()+'</div></div><div class="detail-card"><div class="detail-card-label">52週高値</div><div class="detail-card-value gold">'+Number(s.high52||0).toLocaleString()+'</div></div><div class="detail-card"><div class="detail-card-label">RS6w</div><div class="detail-card-value '+rc(s.rs6w)+'">'+rs(s.rs6w)+'</div></div><div class="detail-card"><div class="detail-card-label">RS26w</div><div class="detail-card-value '+rc(s.rs26w)+'">'+rs(s.rs26w)+'</div></div></div><div style="font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">7条件チェック</div><div class="conditions-grid">'+cc+'</div><div class="ai-section"><div class="ai-section-title">AI&#20998;&#26512;</div><div class="ai-key-setup"><div class="ai-key-label">Gemini API&#12461;&#12540;&#65288;&#19968;&#24230;&#20837;&#21147;&#12377;&#12428;&#12400;&#20445;&#23384;&#12373;&#12428;&#12414;&#12377;&#65289;</div><input class="ai-key-input" id="gk-input" type="password" placeholder="AIza..." value="'+gk("gk")+'" onchange="sk(\'gk\',this.value)"></div><div class="ai-key-setup"><div class="ai-key-label">Claude API&#12461;&#12540;</div><input class="ai-key-input" id="ck-input" type="password" placeholder="sk-ant-..." value="'+gk("ck")+'" onchange="sk(\'ck\',this.value)"></div><div class="ai-tabs"><div class="ai-tab active" id="tab-news" onclick="swTab(\'news\')">&#128240; ニュース</div><div class="ai-tab" id="tab-trend" onclick="swTab(\'trend\')">&#128200; 動向</div><div class="ai-tab" id="tab-judge" onclick="swTab(\'judge\')">&#127919; 判定</div><div class="ai-tab" id="tab-overview" onclick="swTab(\'overview\')">&#127970; 概要</div><div class="ai-tab" id="tab-plan" onclick="swTab(\'plan\')">&#128203; 中期計画</div><div class="ai-tab" id="tab-free" onclick="swTab(\'free\')">&#9997; 自由</div></div><div style="margin:8px 0"><textarea class="memo-area" id="ai-free-input" placeholder="自由に質問を入力..." style="height:40px;display:none"></textarea></div><div class="ai-loading" id="ai-loading"><div class="ai-spinner"></div>分析中...</div><div class="ai-error" id="ai-error"></div><div class="ai-result" id="ai-result"></div><button class="ai-btn gemini" id="btn-g" onclick="runG(\''+s.code+'\',\''+(s.name||s.code).replace(/'/g,"")+'\')">\u2736 Geminiで検索・分析</button><button class="ai-btn claude" id="btn-c" onclick="runC(\''+s.code+'\',\''+(s.name||s.code).replace(/'/g,"")+'\',\''+s.score+'\',\''+hp+'\',\''+rs(s.rs26w)+'\')">&#9670; Claudeで分析</button><div style="margin-top:6px"><button onclick="saveKnowledge(\''+s.code+'\')" style="background:none;border:1px solid #30363d;color:#8b949e;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px">&#128218; この回答をナレッジに保存</button></div></div><div class="ai-history"><div class="ai-history-title">&#23653;&#27508; (&#26368;&#22810;5&#20214;)</div><div id="ai-history-list"></div></div><div style="margin-top:12px;border-top:1px solid #30363d;padding-top:12px"><div class="memo-label">メモ</div><textarea class="memo-area" id="detail-memo" onchange="saveMemo(\''+s.code+'\',this.value)" placeholder="メモを入力...">'+getMemo(s.code)+'</textarea></div><button class="close-btn" style="background:#1a2a3a;border-color:#58a6ff;color:#58a6ff;margin-bottom:6px" onclick="closeDetail();openChart(\''+s.code+'\')">&#128202; ローソク足チャートを表示</button><button class="close-btn" style="background:#1a2a0d;border-color:#f0b429;color:#f0b429;margin-bottom:6px" onclick="closeDetail();openFins(\''+s.code+'\')">&#128200; 業績を表示</button><button class="close-btn" onclick="closeDetail()">&#38281;&#12376;&#12427;</button>';curTab="news";document.getElementById("detail-panel").classList.add("open");setTimeout(()=>renderAIHistory(s.code),100);document.getElementById("overlay").classList.add("show");}function swTab(t){curTab=t;document.querySelectorAll(".ai-tab").forEach(x=>x.classList.remove("active"));var tabEl=document.getElementById("tab-"+t);if(tabEl)tabEl.classList.add("active");const r=document.getElementById("ai-result");if(r){r.classList.remove("show");r.textContent="";}var fi=document.getElementById("ai-free-input");if(fi)fi.style.display=t==="free"?"block":"none";}function aiLoad(on){const l=document.getElementById("ai-loading"),g=document.getElementById("btn-g"),c=document.getElementById("btn-c");if(l)l.className="ai-loading"+(on?" show":"");if(g)g.disabled=on;if(c)c.disabled=on;if(on){const r=document.getElementById("ai-result"),e=document.getElementById("ai-error");if(r)r.classList.remove("show");if(e)e.classList.remove("show");}}function aiShow(txt,code,tab,model){const r=document.getElementById("ai-result");if(r){r.textContent=txt;r.classList.add("show");}if(code&&tab&&model){saveAIHistory(code,tab,model,txt);renderAIHistory(code);}}function aiErr(msg){const e=document.getElementById("ai-error");if(e){e.textContent=msg;e.classList.add("show");}aiLoad(false);}function getKnowledge(code){
+  // Merge: file-based (from knowledge_data.json) + localStorage buffer
+  var fileKl=(window._knowledge||{})[code]||[];
+  var localKl=[];
+  try{localKl=JSON.parse(localStorage.getItem("knowledge_"+code)||"[]");}catch(e){}
+  return fileKl.concat(localKl);
+}
 function saveKnowledge(code){
   var r=document.getElementById("ai-result");
   if(!r||!r.textContent){alert("保存する回答がありません");return;}
-  var kl=getKnowledge(code);
-  kl.unshift({date:new Date().toISOString().slice(0,10),tab:curTab,text:r.textContent.slice(0,500)});
+  // Save to localStorage as buffer (MCP export_knowledge で永続化)
+  var kl=[];
+  try{kl=JSON.parse(localStorage.getItem("knowledge_"+code)||"[]");}catch(e){}
+  kl.unshift({date:new Date().toISOString().slice(0,10),category:curTab,text:r.textContent.slice(0,500)});
   if(kl.length>10)kl=kl.slice(0,10);
   localStorage.setItem("knowledge_"+code,JSON.stringify(kl));
-  alert("ナレッジに保存しました ("+kl.length+"件)");
+  alert("ナレッジに保存しました ("+kl.length+"件)\n※ Claude Desktopで export_knowledge を実行すると永続化されます");
 }
 function getKnowledgeContext(code){
   var kl=getKnowledge(code);
   if(!kl.length)return"";
-  return"\n\n【過去のナレッジ】\n"+kl.slice(0,3).map(function(k){return"["+k.date+"] "+k.text.slice(0,200);}).join("\n");
+  return"\n\n【過去のナレッジ】\n"+kl.slice(0,5).map(function(k){return"["+k.date+"] "+k.text.slice(0,200);}).join("\n");
 }
-var factRule="\n\n【重要ルール】回答は「事実」と「推測・見解」を明確に分けて記述してください。事実には情報源を示し、推測には「推測:」と明記してください。";
+var factRule="\n\n【重要ルール】\n1. 回答は「事実」と「推測・見解」を明確に分けて記述してください\n2. 事実には必ず情報源（出典名、URL等）を記載してください\n3. 推測には「推測:」と明記してください\n4. 情報源はHTTPSのサイトのみを参照してください。HTTPのサイトは絶対に参照しないでください\n5. 情報源URLがある場合は末尾に【出典】として列挙してください";
 async function runG(code,name){const key=document.getElementById("gk-input")?.value||gk("gk");if(!key){aiErr("Gemini APIキーを入力してください");return;}sk("gk",key);const t=curTab;
   var freeText=(document.getElementById("ai-free-input")||{}).value||"";
   var knCtx=getKnowledgeContext(code);
@@ -526,9 +551,11 @@ function renderPortfolio(){
 // Financial data
 const FINS_DATA_URL=DATA_BASE+"fins_data.json";
 const TIMELINE_URL=DATA_BASE+"timeline_data.json";
-window._finsData={};window._timeline={};
+const KNOWLEDGE_URL=DATA_BASE+"knowledge_data.json";
+window._finsData={};window._timeline={};window._knowledge={};
 async function loadFinsData(){try{const r=await fetch(FINS_DATA_URL+"?t="+Date.now());if(r.ok)window._finsData=await r.json();}catch(e){}}
 async function loadTimeline(){try{const r=await fetch(TIMELINE_URL+"?t="+Date.now());if(r.ok)window._timeline=await r.json();}catch(e){}}
+async function loadKnowledge(){try{const r=await fetch(KNOWLEDGE_URL+"?t="+Date.now());if(r.ok)window._knowledge=await r.json();}catch(e){}}
 
 function fmtYen(v){
   if(v==null)return'-';
@@ -753,6 +780,16 @@ renderPortfolio=function(){
     h+='<tr><td class="code" style="cursor:pointer" onclick="openChart(\''+code+'\')">'+code+'</td><td class="name">'+(p.name||s.name||'-')+'</td><td style="font-size:11px;color:#8b949e">'+addedAt+'</td><td class="r">'+shares+'</td><td class="r price-val">'+Number(cost).toLocaleString()+'</td><td class="r price-val">'+Number(curPrice).toLocaleString()+'</td><td class="r"><span class="'+plClass+'">'+(pl>=0?'+':'')+Number(Math.round(pl)).toLocaleString()+' ('+plPct.toFixed(1)+'%)</span></td><td>'+pb+'</td><td><button onclick="removeFromPortfolio(\''+code+'\')" style="background:none;border:1px solid #f85149;color:#f85149;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:10px">削除</button></td></tr>';
   });
   document.getElementById('pf-content').innerHTML=h+'</tbody></table></div>';
+  // Calculate total portfolio value
+  var cash=loadCash();
+  var stockValue=0;
+  codes.forEach(function(code){
+    var p=pf[code]||{};var s=allData.find(function(x){return x.code===code;})||{};
+    stockValue+=(p.shares||0)*(s.price||0);
+  });
+  var total=cash+stockValue;
+  var totalEl=document.getElementById('pf-total');
+  if(totalEl)totalEl.innerHTML='株式評価額: <b>'+Number(Math.round(stockValue)).toLocaleString()+'</b> / 合計: <b style="color:#f0b429">'+Number(Math.round(total)).toLocaleString()+'円</b>';
 };
 
 // Simulation
@@ -790,39 +827,66 @@ function initSim(code,finsRecords){
   document.getElementById('sim-npmargin').value=saved?saved.npMargin:Math.round(npMargin);
   document.getElementById('sim-per').value=saved?saved.per:Math.round(curPER);
   document.getElementById('sim-years').value=saved?saved.years:3;
+  document.getElementById('sim-unit-price').value=saved?saved.unitPrice||0:0;
+  document.getElementById('sim-volume').value=saved?saved.volume||0:0;
+  document.getElementById('sim-cogs').value=saved?saved.cogs||60:60;
+  document.getElementById('sim-headcount').value=saved?saved.headcount||0:0;
+  document.getElementById('sim-salary').value=saved?saved.salary||0:0;
   document.getElementById('sim-section').style.display='block';
   setTimeout(function(){runSim();runBacktest();},100);
 }
 function runSim(){
-  if(!simBaseData.sales)return;
+  if(!simBaseData||!simBaseData.sales)return;
   var growth=parseFloat(document.getElementById('sim-growth').value)||0;
   var opMargin=parseFloat(document.getElementById('sim-opmargin').value)||0;
   var npMargin=parseFloat(document.getElementById('sim-npmargin').value)||0;
   var per=parseFloat(document.getElementById('sim-per').value)||20;
   var years=parseInt(document.getElementById('sim-years').value)||3;
-  var curPrice=simBaseData.price;
-  var sharesEst=simBaseData.sharesEst;
+  var unitPrice=parseFloat(document.getElementById('sim-unit-price').value)||0;
+  var volume=parseFloat(document.getElementById('sim-volume').value)||0;
+  var cogs=parseFloat(document.getElementById('sim-cogs').value)||60;
+  var headcount=parseFloat(document.getElementById('sim-headcount').value)||0;
+  var salary=parseFloat(document.getElementById('sim-salary').value)||0;
+  var curPrice=simBaseData.price||0;
+  var sharesEst=simBaseData.sharesEst||1;
 
-  var h='<div class="table-wrap"><table class="fins-table"><thead><tr><th>年度</th><th>予想売上</th><th>予想営業利益</th><th>予想純利益</th><th>予想EPS</th><th>適正株価</th><th>乖離率</th></tr></thead><tbody>';
-  // Current
+  // If unit price and volume are set, use bottom-up sales calc
+  var useBottomUp=unitPrice>0&&volume>0;
+
+  var h='';
+  // Show cost breakdown if detailed KPIs are set
+  if(useBottomUp||headcount>0){
+    h+='<div class="fins-section" style="margin-bottom:10px"><div class="fins-section-title">KPI分解</div><div style="display:flex;gap:8px;flex-wrap:wrap">';
+    if(useBottomUp)h+='<div class="detail-card" style="flex:1;min-width:120px"><div class="detail-card-label">売上(単価×数量)</div><div class="detail-card-value" style="font-size:14px">'+fmtYen(unitPrice*10000*volume*10000)+'</div></div>';
+    h+='<div class="detail-card" style="flex:1;min-width:120px"><div class="detail-card-label">原価('+cogs+'%)</div><div class="detail-card-value" style="font-size:14px">'+fmtYen(simBaseData.sales*cogs/100)+'</div></div>';
+    if(headcount>0&&salary>0)h+='<div class="detail-card" style="flex:1;min-width:120px"><div class="detail-card-label">人件費('+headcount+'人×'+salary+'万)</div><div class="detail-card-value" style="font-size:14px">'+fmtYen(headcount*salary*10000)+'</div></div>';
+    h+='</div></div>';
+  }
+
+  h+='<div class="table-wrap"><table class="fins-table"><thead><tr><th>年度</th><th>予想売上</th><th>予想営業利益</th><th>予想純利益</th><th>予想EPS</th><th>適正株価</th><th>乖離率</th></tr></thead><tbody>';
   h+='<tr><td style="color:#8b949e">現在</td><td>'+fmtYen(simBaseData.sales)+'</td><td>'+fmtYen(simBaseData.op)+'</td><td>'+fmtYen(simBaseData.np)+'</td><td>'+fmtNum(simBaseData.eps,1)+'</td><td>'+Number(Math.round(curPrice)).toLocaleString()+'</td><td>-</td></tr>';
 
-  var lastTargetPrice=curPrice;
   for(var y=1;y<=years;y++){
-    var fSales=simBaseData.sales*Math.pow(1+growth/100,y);
+    var fSales;
+    if(useBottomUp){
+      fSales=unitPrice*10000*volume*10000*Math.pow(1+growth/100,y);
+    }else{
+      fSales=simBaseData.sales*Math.pow(1+growth/100,y);
+    }
     var fOp=fSales*opMargin/100;
     var fNp=fSales*npMargin/100;
     var fEps=sharesEst>0?(fNp/sharesEst):0;
     var targetPrice=fEps*per;
     var gap=curPrice>0?((targetPrice/curPrice-1)*100):0;
     var gapClass=gap>=0?'pos':'neg';
-    lastTargetPrice=targetPrice;
     h+='<tr class="forecast"><td>'+y+'年後</td><td>'+fmtYen(fSales)+'</td><td>'+fmtYen(fOp)+'</td><td>'+fmtYen(fNp)+'</td><td>'+fmtNum(fEps,1)+'</td><td class="'+gapClass+'">'+Number(Math.round(targetPrice)).toLocaleString()+'</td><td class="'+gapClass+'">'+(gap>=0?'+':'')+gap.toFixed(1)+'%</td></tr>';
   }
   h+='</tbody></table></div>';
 
-  // PER scenario analysis
-  var fEpsFinal=simBaseData.sales*Math.pow(1+growth/100,years)*npMargin/100/(sharesEst||1);
+  // PER scenario
+  var fEpsFinal;
+  if(useBottomUp){fEpsFinal=unitPrice*10000*volume*10000*Math.pow(1+growth/100,years)*npMargin/100/sharesEst;}
+  else{fEpsFinal=simBaseData.sales*Math.pow(1+growth/100,years)*npMargin/100/sharesEst;}
   var scenarios=[
     {label:'悲観 (PER '+(Math.round(per*0.7))+')',per:per*0.7},
     {label:'基準 (PER '+Math.round(per)+')',per:per},
@@ -840,6 +904,17 @@ function runSim(){
 
   document.getElementById('sim-result').innerHTML=h;
 }
+function saveCash(){
+  var cash=parseFloat(document.getElementById('pf-cash').value)||0;
+  localStorage.setItem('pf_cash',cash);
+  renderPortfolio();
+}
+function loadCash(){
+  var cash=parseFloat(localStorage.getItem('pf_cash'))||0;
+  var el=document.getElementById('pf-cash');
+  if(el)el.value=cash||'';
+  return cash;
+}
 function saveSim(){
   if(!simCode)return;
   var d={
@@ -848,6 +923,11 @@ function saveSim(){
     npMargin:parseFloat(document.getElementById('sim-npmargin').value)||0,
     per:parseFloat(document.getElementById('sim-per').value)||20,
     years:parseInt(document.getElementById('sim-years').value)||3,
+    unitPrice:parseFloat(document.getElementById('sim-unit-price').value)||0,
+    volume:parseFloat(document.getElementById('sim-volume').value)||0,
+    cogs:parseFloat(document.getElementById('sim-cogs').value)||60,
+    headcount:parseFloat(document.getElementById('sim-headcount').value)||0,
+    salary:parseFloat(document.getElementById('sim-salary').value)||0,
   };
   localStorage.setItem('sim_'+simCode,JSON.stringify(d));
   alert('シミュレーション設定を保存しました: '+simCode);
@@ -909,4 +989,4 @@ function runBacktest(){
   document.getElementById("sim-result").innerHTML+=h;
 }
 
-loadData();loadChartData();loadPatternData();loadFinsData();loadTimeline();loadWatchlist();loadPortfolio();renderPresets();</script></body></html>
+loadData();loadChartData();loadPatternData();loadFinsData();loadTimeline();loadKnowledge();loadWatchlist();loadPortfolio();renderPresets();setTimeout(loadCash,500);</script></body></html>
