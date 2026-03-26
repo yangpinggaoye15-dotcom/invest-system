@@ -351,7 +351,7 @@ function loadChart(){
   var ohlcv=cd[code];
   if(!ohlcv||!ohlcv.length){
     document.getElementById('chart-error').style.display='block';
-    document.getElementById('chart-error').textContent='チャートデータがありません: '+code+' (export_chart_dataを実行してください)';
+    document.getElementById('chart-error').textContent='チャートデータがありません: '+code+' （年初来高値圏/監視/PF銘柄のみ対応。Claude Desktopで export_chart_data(extra_codes=\"'+code+'\") を実行すると追加できます）';
     return;
   }
   document.getElementById('chart-error').style.display='none';
@@ -579,7 +579,7 @@ function loadFins(){
   var records=fd[code];
   if(!records||!records.length){
     document.getElementById('fins-error').style.display='block';
-    document.getElementById('fins-error').textContent='業績データがありません: '+code+' (export_fins_dataを実行してください)';
+    document.getElementById('fins-error').textContent='業績データがありません: '+code+' （年初来高値圏/監視/PF銘柄のみ対応。Claude Desktopで export_fins_data(extra_codes=\"'+code+'\") を実行すると追加できます）';
     return;
   }
   document.getElementById('fins-error').style.display='none';
