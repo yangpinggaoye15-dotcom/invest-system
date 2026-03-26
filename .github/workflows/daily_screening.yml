@@ -23,12 +23,23 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        run: pip install requests pandas
+        run: pip install requests pandas plotly mcp
 
       - name: Run screening
         env:
           JQUANTS_API_KEY: ${{ secrets.JQUANTS_API_KEY }}
         run: python run_screen_full.py --fresh
+
+      - name: Export chart, pattern, and financial data
+        env:
+          JQUANTS_API_KEY: ${{ secrets.JQUANTS_API_KEY }}
+        run: |
+          python -c "
+          import stock_mcp_server as s
+          print(s.export_chart_data())
+          print(s.export_fins_data())
+          print(s.export_site_data())
+          "
 
       - name: Commit and push results
         run: |
@@ -46,8 +57,7 @@ jobs:
         run: |
           git clone https://x-access-token:${DATA_REPO_TOKEN}@github.com/yangpinggaoye15-dotcom/invest-data.git invest-data-repo
           cp data/screen_full_results.json invest-data-repo/screen_full_results.json
-          # Copy optional data files if they exist
-          for f in chart_data.json pattern_data.json watchlist.json portfolio.json; do
+          for f in chart_data.json pattern_data.json fins_data.json watchlist.json portfolio.json; do
             [ -f "$f" ] && cp "$f" invest-data-repo/ || true
           done
           cd invest-data-repo

@@ -72,16 +72,37 @@
   <div id="fins-content" style="padding:12px 14px">
     <div class="loading"><div class="loading-text">銘柄コードを入力してください</div></div>
   </div>
+  <div id="sim-section" style="display:none;padding:12px 14px;border-top:2px solid #f0b429">
+    <div class="fins-section-title" style="margin-bottom:12px">業績・株価シミュレーション</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div><label style="font-size:11px;color:#8b949e">売上成長率 (%)</label><input id="sim-growth" type="number" value="10" step="1" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:6px 10px;color:#e6edf3;font-size:13px;margin-top:4px" oninput="runSim()"></div>
+      <div><label style="font-size:11px;color:#8b949e">営業利益率 (%)</label><input id="sim-opmargin" type="number" value="15" step="1" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:6px 10px;color:#e6edf3;font-size:13px;margin-top:4px" oninput="runSim()"></div>
+      <div><label style="font-size:11px;color:#8b949e">純利益率 (%)</label><input id="sim-npmargin" type="number" value="10" step="1" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:6px 10px;color:#e6edf3;font-size:13px;margin-top:4px" oninput="runSim()"></div>
+      <div><label style="font-size:11px;color:#8b949e">目標PER (倍)</label><input id="sim-per" type="number" value="20" step="1" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:6px 10px;color:#e6edf3;font-size:13px;margin-top:4px" oninput="runSim()"></div>
+      <div><label style="font-size:11px;color:#8b949e">シミュレーション年数</label><input id="sim-years" type="number" value="3" min="1" max="5" style="width:100%;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:6px 10px;color:#e6edf3;font-size:13px;margin-top:4px" oninput="runSim()"></div>
+      <div><button onclick="saveSim()" style="width:100%;margin-top:18px;padding:8px;background:#30363d;border:1px solid #f0b429;border-radius:6px;color:#f0b429;cursor:pointer;font-size:12px">設定を保存</button></div>
+    </div>
+    <div id="sim-result"></div>
+  </div>
 </div>
 <div class="page" id="page-watchlist">
 <div class="section-header"><div class="section-title">監視銘柄リスト</div><div class="section-count" id="wl-count">-</div></div>
+<div style="padding:10px 14px;display:flex;gap:6px;align-items:center;border-bottom:1px solid #21262d">
+  <input id="wl-add-code" type="text" placeholder="銘柄コード" style="width:80px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:6px 10px;color:#e6edf3;font-size:13px">
+  <input id="wl-add-memo" type="text" placeholder="メモ（任意）" style="flex:1;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:6px 10px;color:#e6edf3;font-size:13px">
+  <button onclick="addToWatchlist()" style="padding:6px 14px;background:#f0b429;border:none;border-radius:6px;color:#0d1117;font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap">追加</button>
+</div>
 <div id="wl-content"><div class="loading"><div class="loading-text">データを読み込み中...</div></div></div>
-<div style="padding:12px 14px;font-size:11px;color:#8b949e">※ 銘柄の追加/削除はClaude Desktop (MCP) の watchlist_add / watchlist_remove で実行</div>
 </div>
 <div class="page" id="page-portfolio">
 <div class="section-header"><div class="section-title">ポートフォリオ</div><div class="section-count" id="pf-count">-</div></div>
+<div style="padding:10px 14px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #21262d">
+  <input id="pf-add-code" type="text" placeholder="コード" style="width:70px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:6px 10px;color:#e6edf3;font-size:13px">
+  <input id="pf-add-shares" type="number" placeholder="株数" style="width:70px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:6px 10px;color:#e6edf3;font-size:13px">
+  <input id="pf-add-cost" type="number" placeholder="取得単価" style="width:90px;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:6px 10px;color:#e6edf3;font-size:13px">
+  <button onclick="addToPortfolio()" style="padding:6px 14px;background:#f0b429;border:none;border-radius:6px;color:#0d1117;font-weight:600;cursor:pointer;font-size:13px;white-space:nowrap">追加</button>
+</div>
 <div id="pf-content"><div class="loading"><div class="loading-text">データを読み込み中...</div></div></div>
-<div style="padding:12px 14px;font-size:11px;color:#8b949e">※ 銘柄の追加/削除はClaude Desktop (MCP) の portfolio_add / portfolio_remove で実行</div>
 </div><button class="chat-btn" onclick="toggleChat()" title="AIチャット">&#129302;</button>
 <div class="chat-panel" id="chat-panel">
   <div class="chat-header">
@@ -596,11 +617,198 @@ function loadFins(){
   }
 
   document.getElementById('fins-content').innerHTML=h;
+  initSim(code,records);
 }
 function openFins(code){
   showPage('fins',document.querySelectorAll('.nav-btn')[2]);
   document.getElementById('fins-code-input').value=code;
   loadFins();
+}
+
+// Watchlist add/remove (localStorage-based)
+function getLocalWL(){try{return JSON.parse(localStorage.getItem('wl_local')||'{}');}catch(e){return {};}}
+function saveLocalWL(d){localStorage.setItem('wl_local',JSON.stringify(d));}
+function getLocalPF(){try{return JSON.parse(localStorage.getItem('pf_local')||'{}');}catch(e){return {};}}
+function saveLocalPF(d){localStorage.setItem('pf_local',JSON.stringify(d));}
+
+function addToWatchlist(){
+  var code=document.getElementById('wl-add-code').value.trim();
+  if(!code)return;
+  var memo=document.getElementById('wl-add-memo').value.trim();
+  var s=allData.find(function(x){return x.code===code;});
+  var wl=getLocalWL();
+  wl[code]={code:code,name:s?s.name:'',memo:memo,added_at:new Date().toISOString()};
+  saveLocalWL(wl);
+  document.getElementById('wl-add-code').value='';
+  document.getElementById('wl-add-memo').value='';
+  renderWatchlist();
+}
+function removeFromWatchlist(code){
+  var wl=getLocalWL();
+  delete wl[code];
+  saveLocalWL(wl);
+  // Also remove from server data display
+  var sw=window._watchlist||{};
+  delete sw[code];
+  renderWatchlist();
+}
+function addToPortfolio(){
+  var code=document.getElementById('pf-add-code').value.trim();
+  var shares=parseFloat(document.getElementById('pf-add-shares').value)||0;
+  var cost=parseFloat(document.getElementById('pf-add-cost').value)||0;
+  if(!code||!shares||!cost)return;
+  var s=allData.find(function(x){return x.code===code;});
+  var pf=getLocalPF();
+  pf[code]={code:code,name:s?s.name:'',shares:shares,cost:cost,added_at:new Date().toISOString()};
+  saveLocalPF(pf);
+  document.getElementById('pf-add-code').value='';
+  document.getElementById('pf-add-shares').value='';
+  document.getElementById('pf-add-cost').value='';
+  renderPortfolio();
+}
+function removeFromPortfolio(code){
+  var pf=getLocalPF();
+  delete pf[code];
+  saveLocalPF(pf);
+  var sp=window._portfolio||{};
+  delete sp[code];
+  renderPortfolio();
+}
+
+// Override renderWatchlist to merge local + server data and add delete buttons
+var _origRenderWL=renderWatchlist;
+renderWatchlist=function(){
+  var wl=Object.assign({},window._watchlist||{},getLocalWL());
+  var codes=Object.keys(wl).filter(function(k){return k!=='__meta__';});
+  document.getElementById('wl-count').textContent=codes.length+'件';
+  if(!codes.length){document.getElementById('wl-content').innerHTML='<div class="loading"><div class="loading-text">監視銘柄なし</div></div>';return;}
+  var h='<div class="table-wrap"><table><thead><tr><th>コード</th><th>銘柄名</th><th>メモ</th><th>スコア</th><th>パターン</th><th class="r">株価</th><th></th></tr></thead><tbody>';
+  codes.forEach(function(code){
+    var w=wl[code]||{};var s=allData.find(function(x){return x.code===code;})||{};
+    var pat=window._patternData||{};var sp=pat[code];
+    var pb=sp&&sp.patterns&&sp.patterns.length?sp.patterns.map(function(p){var cls=p==='cup_with_handle'?'pattern-cup':p==='vcp'?'pattern-vcp':'pattern-flat';var lbl=p==='cup_with_handle'?'CwH':p==='vcp'?'VCP':'Flat';return'<span class="pattern-badge '+cls+'">'+lbl+'</span>';}).join(''):'<span class="pattern-none">-</span>';
+    var memo=w.memo||getMemo(code)||'';
+    h+='<tr><td class="code" style="cursor:pointer" onclick="openChart(\''+code+'\')">'+code+'</td><td class="name">'+(w.name||s.name||'-')+'</td><td class="wl-memo">'+memo+'</td><td>'+(s.score||'-')+'</td><td>'+pb+'</td><td class="r price-val">'+(s.price?Number(s.price).toLocaleString():'-')+'</td><td><button onclick="removeFromWatchlist(\''+code+'\')" style="background:none;border:1px solid #f85149;color:#f85149;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:10px">削除</button></td></tr>';
+  });
+  document.getElementById('wl-content').innerHTML=h+'</tbody></table></div>';
+};
+
+// Override renderPortfolio to merge local + server data and add delete buttons
+var _origRenderPF=renderPortfolio;
+renderPortfolio=function(){
+  var pf=Object.assign({},window._portfolio||{},getLocalPF());
+  var codes=Object.keys(pf).filter(function(k){return k!=='__meta__';});
+  document.getElementById('pf-count').textContent=codes.length+'件';
+  if(!codes.length){document.getElementById('pf-content').innerHTML='<div class="loading"><div class="loading-text">保有銘柄なし</div></div>';return;}
+  var h='<div class="table-wrap"><table><thead><tr><th>コード</th><th>銘柄名</th><th class="r">株数</th><th class="r">取得単価</th><th class="r">現在値</th><th class="r">損益</th><th>パターン</th><th></th></tr></thead><tbody>';
+  codes.forEach(function(code){
+    var p=pf[code]||{};var s=allData.find(function(x){return x.code===code;})||{};
+    var curPrice=s.price||0;var cost=p.cost||0;var shares=p.shares||0;
+    var pl=shares*(curPrice-cost);var plPct=cost>0?((curPrice-cost)/cost*100):0;
+    var plClass=pl>=0?'rs-pos':'rs-neg';
+    var pat=window._patternData||{};var sp=pat[code];
+    var pb=sp&&sp.patterns&&sp.patterns.length?sp.patterns.map(function(pp){var cls=pp==='cup_with_handle'?'pattern-cup':pp==='vcp'?'pattern-vcp':'pattern-flat';var lbl=pp==='cup_with_handle'?'CwH':pp==='vcp'?'VCP':'Flat';return'<span class="pattern-badge '+cls+'">'+lbl+'</span>';}).join(''):'<span class="pattern-none">-</span>';
+    h+='<tr><td class="code" style="cursor:pointer" onclick="openChart(\''+code+'\')">'+code+'</td><td class="name">'+(p.name||s.name||'-')+'</td><td class="r">'+shares+'</td><td class="r price-val">'+Number(cost).toLocaleString()+'</td><td class="r price-val">'+Number(curPrice).toLocaleString()+'</td><td class="r"><span class="'+plClass+'">'+(pl>=0?'+':'')+Number(Math.round(pl)).toLocaleString()+' ('+plPct.toFixed(1)+'%)</span></td><td>'+pb+'</td><td><button onclick="removeFromPortfolio(\''+code+'\')" style="background:none;border:1px solid #f85149;color:#f85149;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:10px">削除</button></td></tr>';
+  });
+  document.getElementById('pf-content').innerHTML=h+'</tbody></table></div>';
+};
+
+// Simulation
+var simCode='';
+var simBaseData={};
+function initSim(code,finsRecords){
+  simCode=code;
+  var fyRecords=finsRecords.filter(function(r){return r.period==='FY';}).sort(function(a,b){return a.fy.localeCompare(b.fy);});
+  if(!fyRecords.length){document.getElementById('sim-section').style.display='none';return;}
+  var last=fyRecords[fyRecords.length-1];
+  var prev=fyRecords.length>=2?fyRecords[fyRecords.length-2]:null;
+  var s=allData.find(function(x){return x.code===code;})||{};
+  simBaseData={
+    sales:last.sales||0,
+    op:last.op||0,
+    np:last.np||0,
+    eps:last.eps||0,
+    price:s.price||0,
+    sharesEst:last.eps&&last.np?Math.round(last.np/last.eps):0,
+  };
+  // Calculate defaults from actuals
+  var cagr=0;
+  if(fyRecords.length>=2&&fyRecords[0].sales>0&&last.sales>0){
+    cagr=((Math.pow(last.sales/fyRecords[0].sales,1/(fyRecords.length-1))-1)*100);
+  }
+  var opMargin=last.sales>0?(last.op/last.sales*100):0;
+  var npMargin=last.sales>0?(last.np/last.sales*100):0;
+  var curPER=last.eps>0&&s.price?(s.price/last.eps):20;
+
+  // Load saved settings or use defaults
+  var saved=null;
+  try{saved=JSON.parse(localStorage.getItem('sim_'+code));}catch(e){}
+  document.getElementById('sim-growth').value=saved?saved.growth:Math.round(cagr);
+  document.getElementById('sim-opmargin').value=saved?saved.opMargin:Math.round(opMargin);
+  document.getElementById('sim-npmargin').value=saved?saved.npMargin:Math.round(npMargin);
+  document.getElementById('sim-per').value=saved?saved.per:Math.round(curPER);
+  document.getElementById('sim-years').value=saved?saved.years:3;
+  document.getElementById('sim-section').style.display='block';
+  runSim();
+}
+function runSim(){
+  if(!simBaseData.sales)return;
+  var growth=parseFloat(document.getElementById('sim-growth').value)||0;
+  var opMargin=parseFloat(document.getElementById('sim-opmargin').value)||0;
+  var npMargin=parseFloat(document.getElementById('sim-npmargin').value)||0;
+  var per=parseFloat(document.getElementById('sim-per').value)||20;
+  var years=parseInt(document.getElementById('sim-years').value)||3;
+  var curPrice=simBaseData.price;
+  var sharesEst=simBaseData.sharesEst;
+
+  var h='<div class="table-wrap"><table class="fins-table"><thead><tr><th>年度</th><th>予想売上</th><th>予想営業利益</th><th>予想純利益</th><th>予想EPS</th><th>適正株価</th><th>乖離率</th></tr></thead><tbody>';
+  // Current
+  h+='<tr><td style="color:#8b949e">現在</td><td>'+fmtYen(simBaseData.sales)+'</td><td>'+fmtYen(simBaseData.op)+'</td><td>'+fmtYen(simBaseData.np)+'</td><td>'+fmtNum(simBaseData.eps,1)+'</td><td>'+Number(Math.round(curPrice)).toLocaleString()+'</td><td>-</td></tr>';
+
+  var lastTargetPrice=curPrice;
+  for(var y=1;y<=years;y++){
+    var fSales=simBaseData.sales*Math.pow(1+growth/100,y);
+    var fOp=fSales*opMargin/100;
+    var fNp=fSales*npMargin/100;
+    var fEps=sharesEst>0?(fNp/sharesEst):0;
+    var targetPrice=fEps*per;
+    var gap=curPrice>0?((targetPrice/curPrice-1)*100):0;
+    var gapClass=gap>=0?'pos':'neg';
+    lastTargetPrice=targetPrice;
+    h+='<tr class="forecast"><td>'+y+'年後</td><td>'+fmtYen(fSales)+'</td><td>'+fmtYen(fOp)+'</td><td>'+fmtYen(fNp)+'</td><td>'+fmtNum(fEps,1)+'</td><td class="'+gapClass+'">'+Number(Math.round(targetPrice)).toLocaleString()+'</td><td class="'+gapClass+'">'+(gap>=0?'+':'')+gap.toFixed(1)+'%</td></tr>';
+  }
+  h+='</tbody></table></div>';
+
+  // PER scenario analysis
+  var fEpsFinal=simBaseData.sales*Math.pow(1+growth/100,years)*npMargin/100/(sharesEst||1);
+  var scenarios=[
+    {label:'悲観 (PER '+(Math.round(per*0.7))+')',per:per*0.7},
+    {label:'基準 (PER '+Math.round(per)+')',per:per},
+    {label:'楽観 (PER '+(Math.round(per*1.3))+')',per:per*1.3},
+  ];
+  h+='<div style="margin-top:12px"><div class="fins-section-title">PERシナリオ分析（'+years+'年後）</div>';
+  h+='<div style="display:flex;gap:10px">';
+  scenarios.forEach(function(sc){
+    var tp=fEpsFinal*sc.per;
+    var ret=curPrice>0?((Math.pow(tp/curPrice,1/years)-1)*100):0;
+    var cls=ret>=0?'green':'red';
+    h+='<div class="detail-card" style="flex:1"><div class="detail-card-label">'+sc.label+'</div><div class="detail-card-value '+cls+'">'+Number(Math.round(tp)).toLocaleString()+'円</div><div style="font-size:11px;color:#8b949e">年率 '+(ret>=0?'+':'')+ret.toFixed(1)+'%</div></div>';
+  });
+  h+='</div></div>';
+
+  document.getElementById('sim-result').innerHTML=h;
+}
+function saveSim(){
+  if(!simCode)return;
+  var d={
+    growth:parseFloat(document.getElementById('sim-growth').value)||0,
+    opMargin:parseFloat(document.getElementById('sim-opmargin').value)||0,
+    npMargin:parseFloat(document.getElementById('sim-npmargin').value)||0,
+    per:parseFloat(document.getElementById('sim-per').value)||20,
+    years:parseInt(document.getElementById('sim-years').value)||3,
+  };
+  localStorage.setItem('sim_'+simCode,JSON.stringify(d));
+  alert('シミュレーション設定を保存しました: '+simCode);
 }
 
 loadData();loadChartData();loadPatternData();loadFinsData();loadWatchlist();loadPortfolio();renderPresets();</script></body></html>

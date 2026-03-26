@@ -517,7 +517,7 @@ def update():
             rs = {} if not bench_closes else _calc_rs(df["close"].tolist(), bench_closes)
             return {
                 "code":       code_4,
-                "name":       _lookup(code_4),
+                "name":       _lookup_name(code_4),
                 "price":      result["price"],
                 "passed":     result["passed"],
                 "score":      result["score"],
