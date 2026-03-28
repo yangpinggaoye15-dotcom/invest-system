@@ -1,6 +1,8 @@
 name: Daily Investment Teams
 
 on:
+  schedule:
+    - cron: '35 7 * * 1-5'  # 毎平日 16:35 JST（スクリーニング完了後）
   workflow_run:
     workflows: ["Daily Stock Screening"]
     types: [completed]
@@ -9,8 +11,8 @@ on:
 jobs:
   run-teams:
     runs-on: ubuntu-latest
-    # スクリーニング成功後、または手動実行時のみ動作
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    # スクリーニング成功後 / 毎日定時 / 手動実行
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     timeout-minutes: 60
     permissions:
       contents: write
@@ -47,6 +49,7 @@ jobs:
         run: |
           mkdir -p invest-data/reports
           cp reports/daily/*.md invest-data/reports/ 2>/dev/null || true
+          [ -f reports/daily/kpi_log.json ] && cp reports/daily/kpi_log.json invest-data/reports/ || true
           [ -f reports/audit_log.md ] && cp reports/audit_log.md invest-data/reports/ || true
           cd invest-data
           git config user.name "github-actions[bot]"
