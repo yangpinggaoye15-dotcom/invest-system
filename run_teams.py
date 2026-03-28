@@ -210,8 +210,8 @@ def save_kpi_log(kpi_results: dict):
     # 当日分を上書き or 追加
     existing = [e for e in existing if e.get('date') != TODAY]
     existing.append({'date': TODAY, 'teams': kpi_results})
-    # 直近90日分だけ保持
-    existing = existing[-90:]
+    # 直近365日分だけ保持
+    existing = existing[-365:]
     log_path.write_text(json.dumps(existing, ensure_ascii=False, indent=2), encoding='utf-8')
     print(f'  -> kpi_log.json 更新')
 
