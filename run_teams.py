@@ -344,6 +344,104 @@ def run_security():
     write_report('security', call_claude(prompt))
 
 
+# ─── Team 7: 内部監査 ─────────────────────────────────────────────
+def run_internal_audit():
+    # 各チームのレポートを読む
+    reports = {
+        '情報収集': read_report('info_gathering'),
+        '分析':     read_report('analysis'),
+        'リスク管理': read_report('risk'),
+        '投資戦略': read_report('strategy'),
+        'セキュリティ': read_report('security'),
+        '統括レポート': read_report(f'{TODAY}_daily_report'),
+    }
+
+    # 過去の日次レポートを最大5件取得
+    past_reports = []
+    for p in sorted(REPORT_DIR.glob('*_daily_report.md'), reverse=True):
+        if p.stem != f'{TODAY}_daily_report':
+            past_reports.append(p.read_text(encoding='utf-8')[:500])
+        if len(past_reports) >= 5:
+            break
+    past_str = '\n---\n'.join(past_reports) if past_reports else '（過去レポートなし）'
+
+    # 監査ログを読む（前回の提案フォローアップ用）
+    audit_log_path = Path('reports') / 'audit_log.md'
+    prev_audit = audit_log_path.read_text(encoding='utf-8')[-2000:] if audit_log_path.exists() else '（初回）'
+
+    reports_str = '\n\n'.join(f'### {name}\n{content[:1200]}' for name, content in reports.items())
+
+    prompt = f"""あなたは投資チームの「内部監査チーム」です。本日 {TODAY} の全チームを監査してください。
+
+## 各チームの役割定義
+1. 情報収集チーム: 市場概況・指数・為替・決算・セクター動向を収集
+2. 分析チーム: RS上位銘柄のテクニカル/ファンダメンタル分析、A/B/Cランク付け
+3. リスク管理チーム: ポートフォリオリスク・損切りライン・セクター集中度評価
+4. 投資戦略チーム: Attack/Steady/Defend判定、エントリー候補・アクションプラン策定
+5. レポート統括: 全チームを統合した日次レポート作成
+6. セキュリティチーム: APIキー漏洩・CDN混入・gitコミット監査
+
+## 本日の各チームレポート
+{reports_str}
+
+## 過去レポートのサマリー（最大5件）
+{past_str}
+
+## 前回の監査ログ（フォローアップ用）
+{prev_audit}
+
+## 評価観点（各5段階）
+- 網羅性: 役割定義の全項目をカバーしているか
+- 具体性: 数値・銘柄コード・根拠が明記されているか
+- 有用性: 投資判断に実際に役立つ内容か
+- 一貫性: 過去レポートと矛盾がないか
+- 連携性: 前チームの情報を適切に引き継いでいるか
+
+## 出力フォーマット（必ずこの形式で）
+# 内部監査チーム レポート
+日付: {TODAY}
+
+## エグゼクティブサマリー
+（最重要発見を3点以内で）
+
+## チーム別評価
+| チーム | 網羅性 | 具体性 | 有用性 | 一貫性 | 連携性 | 総合 | 所見 |
+|--------|--------|--------|--------|--------|--------|------|------|
+| 情報収集 | /5 | /5 | /5 | /5 | /5 | /5 | ... |
+| 分析 | /5 | /5 | /5 | /5 | /5 | /5 | ... |
+| リスク管理 | /5 | /5 | /5 | /5 | /5 | /5 | ... |
+| 投資戦略 | /5 | /5 | /5 | /5 | /5 | /5 | ... |
+| 統括 | /5 | /5 | /5 | /5 | /5 | /5 | ... |
+| セキュリティ | /5 | /5 | /5 | /5 | /5 | /5 | ... |
+
+## トレンド分析
+（繰り返し発生している問題・改善傾向）
+
+## 改善提案
+### 優先度: 高
+...
+### 優先度: 中
+...
+
+## 新チーム提案
+（不足機能があれば。なければ「なし」）
+
+## 前回提案のフォローアップ
+...
+"""
+    result = call_claude(prompt, max_tokens=6000)
+    write_report('internal_audit', result)
+
+    # 監査ログに追記
+    audit_log_path = Path('reports') / 'audit_log.md'
+    # サマリー行だけ抽出してログに追記
+    summary_lines = [l for l in result.split('\n') if l.startswith('- ') or l.startswith('### 優先度')][:10]
+    log_entry = f'\n## {TODAY}\n' + '\n'.join(summary_lines) + '\n'
+    existing = audit_log_path.read_text(encoding='utf-8') if audit_log_path.exists() else '# 内部監査ログ\n'
+    audit_log_path.write_text(existing + log_entry, encoding='utf-8')
+    print(f'  -> audit_log.md 更新')
+
+
 # ─── メイン ──────────────────────────────────────────────────────
 TEAMS = {
     'info':     ('情報収集チーム',   run_info_gathering),
@@ -352,6 +450,7 @@ TEAMS = {
     'strategy': ('投資戦略チーム',   run_strategy),
     'report':   ('レポート統括',     run_daily_report),
     'security': ('セキュリティチーム', run_security),
+    'audit':    ('内部監査チーム',   run_internal_audit),
 }
 
 if __name__ == '__main__':
