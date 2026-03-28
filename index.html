@@ -76,7 +76,27 @@
 .report-body strong{color:#f0b429;font-weight:600}
 .report-date-btn{padding:4px 10px;font-size:12px;border:1px solid #30363d;border-radius:6px;background:none;color:#8b949e;cursor:pointer}
 .report-date-btn.active{background:#f0b429;color:#0d1117;border-color:#f0b429;font-weight:600}
-</style><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#f0b429"><script src="lightweight-charts.js"></script></head><body><div class="header"><div class="logo">MINERVINI TERMINAL <span>yohei</span></div><div class="updated" id="updated">読み込み中...</div></div><div class="nav"><button class="nav-btn active" onclick="showPage('screening',this)">スクリーニング</button><button class="nav-btn" onclick="showPage('chart',this)">チャート</button><button class="nav-btn" onclick="showPage('fins',this)">業績</button><button class="nav-btn" onclick="showPage('watchlist',this)">監視リスト</button><button class="nav-btn" onclick="showPage('portfolio',this)">ポートフォリオ</button><button class="nav-btn" onclick="showPage('health',this)">市況</button><button class="nav-btn" onclick="showPage('report',this)">レポート</button></div><div class="page active" id="page-screening"><div class="metrics"><div class="metric"><div class="metric-label">対象銘柄</div><div class="metric-value muted" id="m-total">-</div></div><div class="metric"><div class="metric-label">PASS 6/7+</div><div class="metric-value green" id="m-pass">-</div></div><div class="metric"><div class="metric-label">満点 7/7</div><div class="metric-value gold" id="m-perfect">-</div></div><div class="metric"><div class="metric-label">高値更新圏</div><div class="metric-value gold" id="m-nearhigh">-</div></div></div><div class="filter-panel"><div class="search-box"><span style="color:#8b949e;font-size:14px">&#128269;</span><input type="text" id="search-input" placeholder="銘柄コード・銘柄名で検索..." oninput="applyFilters()"></div><div class="filter-row"><span class="filter-label">スコア</span><div class="slider-wrap"><input type="range" id="score-slider" min="1" max="7" value="6" step="1" oninput="updateLabel('score-slider','score-val',v=>v+'/7以上')"><span class="slider-val" id="score-val">6/7以上</span></div></div><div class="filter-row"><span class="filter-label">高値比</span><div class="slider-wrap"><input type="range" id="highpct-slider" min="70" max="100" value="90" step="1" oninput="updateLabel('highpct-slider','highpct-val',v=>v+'%以上')"><span class="slider-val" id="highpct-val">90%以上</span></div></div><div class="filter-row"><span class="filter-label">RS26w</span><div class="toggle-wrap"><div class="toggle" id="rs-toggle" onclick="toggleRS()"></div><span class="toggle-label" id="rs-label">全て表示</span></div></div><div class="filter-row"><span class="filter-label">並び順</span><div class="slider-wrap"><select id="sort-select" onchange="applyFilters()" style="background:#161b22;border:1px solid #30363d;border-radius:6px;color:#e6edf3;padding:4px 8px;font-size:12px;flex:1"><option value="score">スコア順</option><option value="rs26w">RS26w強い順</option><option value="high_pct">高値比順</option><option value="price">株価順</option><option value="pattern">パターン優先</option></select></div></div><div class="custom-filter">
+.report-team-btn{padding:5px 10px;font-size:11px;border:1px solid #30363d;border-radius:6px;background:none;color:#8b949e;cursor:pointer;white-space:nowrap}
+.report-team-btn.active{background:#1f4068;color:#79c0ff;border-color:#79c0ff}
+.phase-badge{display:inline-block;padding:6px 18px;border-radius:20px;font-size:15px;font-weight:700;letter-spacing:1px}
+.phase-attack{background:#0d2d15;color:#3fb950;border:1px solid #3fb950}
+.phase-steady{background:#1a2a1a;color:#f0b429;border:1px solid #f0b429}
+.phase-defend{background:#1c0a0a;color:#f85149;border:1px solid #f85149}
+.kpi-card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 16px;margin-bottom:12px}
+.kpi-card-title{font-size:11px;color:#8b949e;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px}
+.kpi-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #21262d;font-size:12px}
+.kpi-row:last-child{border-bottom:none}
+.kpi-label{color:#8b949e}
+.kpi-val{font-family:monospace;color:#e6edf3;font-weight:600}
+.kpi-ok{color:#3fb950}.kpi-warn{color:#f0b429}.kpi-ng{color:#f85149}
+.sim-card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 16px;margin-bottom:12px}
+.sim-progress-bar{height:6px;background:#30363d;border-radius:3px;margin:8px 0;overflow:hidden}
+.sim-progress-fill{height:100%;background:#f0b429;border-radius:3px;transition:width .3s}
+.kpi-score-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.kpi-score-cell{background:#0d1117;border-radius:8px;padding:10px;text-align:center}
+.kpi-score-num{font-size:22px;font-weight:700;color:#f0b429}
+.kpi-score-lbl{font-size:10px;color:#8b949e;margin-top:2px}
+</style><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#f0b429"><script src="lightweight-charts.js"></script></head><body><div class="header"><div class="logo">MINERVINI TERMINAL <span>yohei</span></div><div class="updated" id="updated">読み込み中...</div></div><div class="nav"><button class="nav-btn active" onclick="showPage('screening',this)">スクリーニング</button><button class="nav-btn" onclick="showPage('chart',this)">チャート</button><button class="nav-btn" onclick="showPage('fins',this)">業績</button><button class="nav-btn" onclick="showPage('watchlist',this)">監視リスト</button><button class="nav-btn" onclick="showPage('portfolio',this)">ポートフォリオ</button><button class="nav-btn" onclick="showPage('health',this)">市況</button><button class="nav-btn" onclick="showPage('report',this)">レポート</button><button class="nav-btn" onclick="showPage('kpi',this)">KPI</button></div><div class="page active" id="page-screening"><div class="metrics"><div class="metric"><div class="metric-label">対象銘柄</div><div class="metric-value muted" id="m-total">-</div></div><div class="metric"><div class="metric-label">PASS 6/7+</div><div class="metric-value green" id="m-pass">-</div></div><div class="metric"><div class="metric-label">満点 7/7</div><div class="metric-value gold" id="m-perfect">-</div></div><div class="metric"><div class="metric-label">高値更新圏</div><div class="metric-value gold" id="m-nearhigh">-</div></div></div><div class="filter-panel"><div class="search-box"><span style="color:#8b949e;font-size:14px">&#128269;</span><input type="text" id="search-input" placeholder="銘柄コード・銘柄名で検索..." oninput="applyFilters()"></div><div class="filter-row"><span class="filter-label">スコア</span><div class="slider-wrap"><input type="range" id="score-slider" min="1" max="7" value="6" step="1" oninput="updateLabel('score-slider','score-val',v=>v+'/7以上')"><span class="slider-val" id="score-val">6/7以上</span></div></div><div class="filter-row"><span class="filter-label">高値比</span><div class="slider-wrap"><input type="range" id="highpct-slider" min="70" max="100" value="90" step="1" oninput="updateLabel('highpct-slider','highpct-val',v=>v+'%以上')"><span class="slider-val" id="highpct-val">90%以上</span></div></div><div class="filter-row"><span class="filter-label">RS26w</span><div class="toggle-wrap"><div class="toggle" id="rs-toggle" onclick="toggleRS()"></div><span class="toggle-label" id="rs-label">全て表示</span></div></div><div class="filter-row"><span class="filter-label">並び順</span><div class="slider-wrap"><select id="sort-select" onchange="applyFilters()" style="background:#161b22;border:1px solid #30363d;border-radius:6px;color:#e6edf3;padding:4px 8px;font-size:12px;flex:1"><option value="score">スコア順</option><option value="rs26w">RS26w強い順</option><option value="high_pct">高値比順</option><option value="price">株価順</option><option value="pattern">パターン優先</option></select></div></div><div class="custom-filter">
 <div class="custom-filter-row">
 <input class="custom-filter-input" id="custom-input" placeholder="例: rs26w > 0.5  /  high_pct > 0.97 && score == 7" oninput="applyFilters()">
 <button class="custom-filter-btn" onclick="savePreset()">保存</button>
@@ -216,13 +236,35 @@
 </div>
 <div class="page" id="page-report">
   <div class="section-header">
-    <div class="section-title">デイリーレポート</div>
+    <div class="section-title">レポート</div>
     <div id="report-date-display" style="font-size:12px;color:#8b949e"></div>
   </div>
-  <div style="padding:10px 14px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid #21262d" id="report-date-btns"></div>
+  <!-- チームタブ -->
+  <div style="padding:8px 14px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid #21262d;overflow-x:auto" id="report-team-btns">
+    <button class="report-team-btn active" onclick="selectTeam('latest_report',this)">📊 最新統合</button>
+    <button class="report-team-btn" onclick="selectTeam('info_gathering',this)">📡 情報収集</button>
+    <button class="report-team-btn" onclick="selectTeam('analysis',this)">🔍 分析</button>
+    <button class="report-team-btn" onclick="selectTeam('risk',this)">🛡 リスク</button>
+    <button class="report-team-btn" onclick="selectTeam('strategy',this)">🎯 投資戦略</button>
+    <button class="report-team-btn" onclick="selectTeam('verification',this)">✅ 検証</button>
+    <button class="report-team-btn" onclick="selectTeam('internal_audit',this)">📋 監査</button>
+    <button class="report-team-btn" onclick="selectTeam('security',this)">🔒 セキュリティ</button>
+  </div>
+  <!-- 日付タブ（統合レポートのみ） -->
+  <div style="padding:8px 14px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid #21262d" id="report-date-btns"></div>
   <div id="report-loading" style="display:none;padding:40px;text-align:center;color:#8b949e">読み込み中...</div>
   <div id="report-error" style="display:none;padding:20px 16px;color:#f85149;font-size:13px"></div>
   <div id="report-body" class="report-body" style="padding:16px 14px"></div>
+</div>
+<!-- KPIダッシュボード -->
+<div class="page" id="page-kpi">
+  <div class="section-header">
+    <div class="section-title">KPI ダッシュボード</div>
+    <div id="kpi-updated" style="font-size:12px;color:#8b949e"></div>
+  </div>
+  <div style="padding:14px" id="kpi-content">
+    <div style="padding:40px;text-align:center;color:#8b949e">読み込み中...</div>
+  </div>
 </div>
 <button class="chat-btn" onclick="toggleChat()" title="AIチャット">&#129302;</button>
 <div class="chat-panel" id="chat-panel">
@@ -1475,6 +1517,8 @@ if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch
 // ─── レポートページ ────────────────────────────────────────────
 var REPORT_BASE='https://raw.githubusercontent.com/yangpinggaoye15-dotcom/invest-data/main/reports/';
 var reportLoaded=false;
+var kpiLoaded=false;
+var currentTeam='latest_report'; // 現在選択中のチーム
 
 function showPage(n,btn){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -1482,6 +1526,7 @@ function showPage(n,btn){
   document.getElementById('page-'+n).classList.add('active');
   btn.classList.add('active');
   if(n==='report'&&!reportLoaded){initReportPage();}
+  if(n==='kpi'&&!kpiLoaded){initKpiPage();}
 }
 
 function mdToHtml(md){
@@ -1529,25 +1574,44 @@ function applyInline(t){
 }
 
 function initReportPage(){
-  // 直近7日分のボタンを生成
   var btns=document.getElementById('report-date-btns');
   var today=new Date();
-  btns.innerHTML='<button class="report-date-btn active" onclick="loadReport(\'latest_report\',this)">最新</button>';
-  for(var i=0;i<7;i++){
+  // 統合レポートの日付ボタン（14日分）
+  btns.innerHTML='';
+  for(var i=0;i<14;i++){
     var d=new Date(today);d.setDate(d.getDate()-i);
-    var y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
-    var ds=y+'-'+m+'-'+day;
-    btns.innerHTML+='<button class="report-date-btn" onclick="loadReport(\''+ds+'_daily_report\',this)">'+m+'/'+day+'</button>';
+    var y=d.getFullYear(),mo=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+    var ds=y+'-'+mo+'-'+day;
+    var dw=['日','月','火','水','木','金','土'][d.getDay()];
+    btns.innerHTML+='<button class="report-date-btn'+(i===0?' active':'')+'" onclick="loadDateReport(\''+ds+'\',this)">'+mo+'/'+day+'('+dw+')</button>';
   }
-  loadReport('latest_report',btns.querySelector('.report-date-btn'));
+  currentTeam='latest_report';
+  loadReport('latest_report',null);
   reportLoaded=true;
 }
 
-async function loadReport(name,btn){
-  if(btn){
-    document.querySelectorAll('.report-date-btn').forEach(function(b){b.classList.remove('active');});
-    btn.classList.add('active');
+function selectTeam(team,btn){
+  currentTeam=team;
+  document.querySelectorAll('.report-team-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  // 日付タブの表示制御（統合レポートのみ日付選択可）
+  var dateBtns=document.getElementById('report-date-btns');
+  dateBtns.style.display=(team==='latest_report')?'flex':'none';
+  if(team==='latest_report'){
+    // 最新の統合レポートを読む
+    loadReport('latest_report',null);
+  } else {
+    loadReport(team,null);
   }
+}
+
+function loadDateReport(dateStr,btn){
+  document.querySelectorAll('.report-date-btn').forEach(function(b){b.classList.remove('active');});
+  if(btn)btn.classList.add('active');
+  loadReport(dateStr+'_daily_report',null);
+}
+
+async function loadReport(name,btn){
   var loading=document.getElementById('report-loading');
   var error=document.getElementById('report-error');
   var body=document.getElementById('report-body');
@@ -1565,5 +1629,159 @@ async function loadReport(name,btn){
   }finally{
     loading.style.display='none';
   }
+}
+
+// ─── KPIダッシュボード ────────────────────────────────────────────
+async function initKpiPage(){
+  kpiLoaded=true;
+  var content=document.getElementById('kpi-content');
+  try{
+    // simulation_log.json と kpi_log.json を並行取得
+    var [simRes,kpiRes]=await Promise.all([
+      fetch(REPORT_BASE+'simulation_log.json?_='+Date.now()),
+      fetch(REPORT_BASE+'kpi_log.json?_='+Date.now())
+    ]);
+    var sim=simRes.ok?await simRes.json():null;
+    var kpiLog=kpiRes.ok?await kpiRes.json():null;
+    content.innerHTML=buildKpiHtml(sim,kpiLog);
+    document.getElementById('kpi-updated').textContent='更新: '+(sim&&sim.last_updated?sim.last_updated:'-');
+  }catch(e){
+    content.innerHTML='<div class="error-box">読み込み失敗: '+e.message+'</div>';
+  }
+}
+
+function buildKpiHtml(sim,kpiLog){
+  var html='';
+
+  // ── フェーズバッジ（kpi_logの最新から取得）
+  var latestKpi=kpiLog&&kpiLog.length?kpiLog[kpiLog.length-1]:null;
+  var phase=latestKpi&&latestKpi.phase?latestKpi.phase:'−';
+  var phaseClass=phase==='Attack'?'phase-attack':phase==='Defend'?'phase-defend':'phase-steady';
+  var phaseDesc=phase==='Attack'?'積極エントリー局面':phase==='Defend'?'現金維持・守り局面':'選別的エントリー局面';
+  html+='<div class="kpi-card">';
+  html+='<div class="kpi-card-title">市場フェーズ（自動判定）</div>';
+  html+='<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">';
+  html+='<span class="phase-badge '+phaseClass+'">'+phase+'</span>';
+  html+='<div><div style="font-size:13px;color:#e6edf3">'+phaseDesc+'</div>';
+  html+='<div style="font-size:11px;color:#8b949e;margin-top:2px">ルールベース（RS分布・スコア7銘柄数・平均RS）で自動算出</div></div>';
+  html+='</div></div>';
+
+  // ── シミュレーション追跡
+  html+='<div class="kpi-card">';
+  html+='<div class="kpi-card-title">シミュレーション追跡</div>';
+  if(sim&&sim.active){
+    var a=sim.active;
+    var pct=a.current_pct||0;
+    var pctColor=pct>0?'#3fb950':pct<0?'#f85149':'#8b949e';
+    var days=a.days_elapsed||0;
+    var progress=Math.min(days/10*100,100);
+    var distStop=((a.current_price-a.stop_loss)/a.entry_price*100).toFixed(1);
+    var distTarget=((a.target1-a.current_price)/a.entry_price*100).toFixed(1);
+    html+='<div style="margin-bottom:10px">';
+    html+='<div style="display:flex;justify-content:space-between;margin-bottom:4px">';
+    html+='<span style="font-size:14px;font-weight:600;color:#f0b429">'+a.name+'</span>';
+    html+='<span style="font-family:monospace;font-size:14px;font-weight:700;color:'+pctColor+'">'+
+      (pct>0?'+':'')+pct+'%</span></div>';
+    html+='<div style="font-size:12px;color:#8b949e;margin-bottom:8px">'+a.code+' | EP:'+a.entry_price+'円 | 現在:'+a.current_price+'円</div>';
+    html+='<div style="display:flex;gap:16px;font-size:11px;margin-bottom:8px">';
+    html+='<span style="color:#f85149">損切り: '+a.stop_loss+'円（−'+Math.abs(distStop)+'%）</span>';
+    html+='<span style="color:#3fb950">目標①: '+a.target1+'円（+'+distTarget+'%）</span></div>';
+    html+='<div style="font-size:11px;color:#8b949e;margin-bottom:4px">経過 '+days+'/10日</div>';
+    html+='<div class="sim-progress-bar"><div class="sim-progress-fill" style="width:'+progress+'%"></div></div>';
+    html+='</div>';
+  } else {
+    html+='<div style="color:#8b949e;font-size:13px;padding:8px 0">追跡中の銘柄なし（次回実行時に自動選定）</div>';
+  }
+
+  // 累計統計
+  var history=sim&&sim.history?sim.history:[];
+  var completed=history.filter(function(h){return h.result;});
+  var wins=completed.filter(function(h){return(h.result_pct||0)>0;});
+  var winRate=completed.length?Math.round(wins.length/completed.length*100):0;
+  var dirMatch=completed.filter(function(h){return h.direction_match;});
+  var dirRate=completed.length?Math.round(dirMatch.length/completed.length*100):0;
+  html+='<div class="kpi-score-row">';
+  html+='<div class="kpi-score-cell"><div class="kpi-score-num">'+completed.length+'</div><div class="kpi-score-lbl">完了件数</div></div>';
+  html+='<div class="kpi-score-cell"><div class="kpi-score-num '+(winRate>=50?'kpi-ok':completed.length?'kpi-warn':'')+'">'+
+    (completed.length?winRate+'%':'−')+'</div><div class="kpi-score-lbl">勝率(目標50%)</div></div>';
+  html+='<div class="kpi-score-cell"><div class="kpi-score-num '+(dirRate>=50?'kpi-ok':completed.length?'kpi-warn':'')+'">'+
+    (completed.length?dirRate+'%':'−')+'</div><div class="kpi-score-lbl">方向一致率</div></div>';
+  html+='</div>';
+  html+='</div>';
+
+  // ── チーム別KPIスコア履歴（直近7日）
+  html+='<div class="kpi-card">';
+  html+='<div class="kpi-card-title">チーム別評価スコア（直近）</div>';
+  if(kpiLog&&kpiLog.length){
+    var recent=kpiLog.slice(-7).reverse();
+    var teams=['情報収集','分析','リスク管理','投資戦略','統括','セキュリティ'];
+    html+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">';
+    html+='<tr><th style="padding:6px 8px;color:#8b949e;text-align:left;border-bottom:1px solid #30363d;white-space:nowrap">日付</th>';
+    teams.forEach(function(t){html+='<th style="padding:6px 8px;color:#8b949e;text-align:center;border-bottom:1px solid #30363d;white-space:nowrap">'+t+'</th>';});
+    html+='</tr>';
+    recent.forEach(function(entry){
+      html+='<tr>';
+      html+='<td style="padding:6px 8px;color:#8b949e;white-space:nowrap">'+entry.date+'</td>';
+      teams.forEach(function(t){
+        var td=entry.teams&&entry.teams[t];
+        var total=td?td.total:'−';
+        var score=parseFloat(total);
+        var color=score>=4?'#3fb950':score>=3?'#f0b429':score>0?'#f85149':'#8b949e';
+        html+='<td style="padding:6px 8px;text-align:center;font-family:monospace;color:'+color+'">'+total+'</td>';
+      });
+      html+='</tr>';
+    });
+    html+='</table></div>';
+  } else {
+    html+='<div style="color:#8b949e;font-size:13px">データ蓄積中（毎日自動更新）</div>';
+  }
+  html+='</div>';
+
+  // ── 全体KPI目標（Phase 1）
+  html+='<div class="kpi-card">';
+  html+='<div class="kpi-card-title">Phase 1 目標（200万→300万）</div>';
+  var kpis=[
+    ['月次損益','+33万円/月','−'],
+    ['勝率','50%以上',completed.length?(winRate+'%'):'−'],
+    ['プロフィットファクター','2.0以上','−'],
+    ['最大ドローダウン','-20万円以内','−'],
+    ['平均RR比','3.0以上','−'],
+  ];
+  kpis.forEach(function(k){
+    html+='<div class="kpi-row"><span class="kpi-label">'+k[0]+'</span>';
+    html+='<div style="display:flex;gap:12px;align-items:center">';
+    html+='<span style="font-size:11px;color:#8b949e">目標: '+k[1]+'</span>';
+    html+='<span class="kpi-val">'+k[2]+'</span></div></div>';
+  });
+  html+='</div>';
+
+  // ── 直近シミュレーション履歴
+  if(completed.length){
+    html+='<div class="kpi-card">';
+    html+='<div class="kpi-card-title">シミュレーション履歴（直近5件）</div>';
+    html+='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">';
+    html+='<tr><th style="padding:6px 8px;color:#8b949e;text-align:left;border-bottom:1px solid #30363d">銘柄</th>';
+    html+='<th style="padding:6px 8px;color:#8b949e;text-align:right;border-bottom:1px solid #30363d">結果</th>';
+    html+='<th style="padding:6px 8px;color:#8b949e;text-align:center;border-bottom:1px solid #30363d">結果種別</th>';
+    html+='<th style="padding:6px 8px;color:#8b949e;text-align:center;border-bottom:1px solid #30363d">方向</th>';
+    html+='<th style="padding:6px 8px;color:#8b949e;text-align:right;border-bottom:1px solid #30363d">終了日</th></tr>';
+    completed.slice(-5).reverse().forEach(function(h){
+      var pct=h.result_pct||0;
+      var pctColor=pct>0?'#3fb950':'#f85149';
+      var resultLabel={'stopped_out':'損切り','target1_hit':'目標①','time_expired':'期間終了'}[h.result]||h.result;
+      var dirIcon=h.direction_match===true?'✅':h.direction_match===false?'❌':'−';
+      html+='<tr>';
+      html+='<td style="padding:6px 8px;white-space:nowrap"><span style="color:#79c0ff;font-family:monospace">'+h.code+'</span> '+h.name+'</td>';
+      html+='<td style="padding:6px 8px;text-align:right;font-family:monospace;color:'+pctColor+'">'+
+        (pct>0?'+':'')+pct+'%</td>';
+      html+='<td style="padding:6px 8px;text-align:center;font-size:11px;color:#8b949e">'+resultLabel+'</td>';
+      html+='<td style="padding:6px 8px;text-align:center">'+dirIcon+'</td>';
+      html+='<td style="padding:6px 8px;text-align:right;font-size:11px;color:#8b949e">'+h.end_date+'</td>';
+      html+='</tr>';
+    });
+    html+='</table></div></div>';
+  }
+
+  return html;
 }
 </script></body></html>
