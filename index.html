@@ -1413,20 +1413,27 @@ function showIdxCompare(){
   var code=(document.getElementById('chart-code-input')||{}).value||'';
   var cd=window._chartData||{};var stockData=cd[code];
   if(!nk||!nk.length||!stockData||!stockData.length){return;}
+  // Resample index to match current stock timeframe
+  var nkResampled=nk;
+  if(curTF==='weekly')nkResampled=resampleWeekly(nk);
+  else if(curTF==='monthly')nkResampled=resampleMonthly(nk);
+  // Also resample stock data to match
+  var stockResampled=stockData;
+  if(curTF==='weekly')stockResampled=resampleWeekly(stockData);
+  else if(curTF==='monthly')stockResampled=resampleMonthly(stockData);
   // Find overlapping date range
-  var stockMap={};stockData.forEach(function(d){stockMap[d.time]=d.close;});
-  var nkMap={};nk.forEach(function(d){nkMap[d.time]=d.close;});
+  var stockMap={};stockResampled.forEach(function(d){stockMap[d.time]=d.close;});
+  var nkMap={};nkResampled.forEach(function(d){nkMap[d.time]=d.close;});
   var dates=Object.keys(stockMap).filter(function(d){return nkMap[d];}).sort();
   if(dates.length<2)return;
-  // Normalize both to % change from first overlapping date
-  var stockBase=stockMap[dates[0]],nkBase=nkMap[dates[0]];
-  var nkNorm=dates.map(function(d){return{time:d,value:((nkMap[d]/nkBase-1)*100)};});
-  // Add normalized line
+  // Normalize: scale index to stock's price range for overlay
+  var stockFirst=stockMap[dates[0]],nkFirst=nkMap[dates[0]];
+  var nkScaled=dates.map(function(d){return{time:d,value:stockFirst*(nkMap[d]/nkFirst)};});
+  // Add line on same price scale (no extra axis)
   try{if(idxCompareSeries)lwChart.removeSeries(idxCompareSeries);}catch(e){}
   idxCompareSeries=null;
-  idxCompareSeries=lwChart.addLineSeries({color:'#ff6b6b',lineWidth:2,lineStyle:2,priceLineVisible:false,lastValueVisible:true,title:'日経225',priceScaleId:'compare'});
-  idxCompareSeries.priceScale().applyOptions({scaleMargins:{top:0.1,bottom:0.1}});
-  idxCompareSeries.setData(nkNorm);
+  idxCompareSeries=lwChart.addLineSeries({color:'#ff6b6b',lineWidth:2,lineStyle:2,priceLineVisible:false,lastValueVisible:false,title:'日経225'});
+  idxCompareSeries.setData(nkScaled);
 }
 function hideIdxCompare(){
   try{if(lwChart&&idxCompareSeries)lwChart.removeSeries(idxCompareSeries);}catch(e){}
