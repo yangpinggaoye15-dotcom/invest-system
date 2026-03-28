@@ -561,6 +561,16 @@ async function loadFinsData(){try{const r=await fetch(FINS_DATA_URL+"?t="+Date.n
 async function loadTimeline(){try{const r=await fetch(TIMELINE_URL+"?t="+Date.now());if(r.ok)window._timeline=await r.json();}catch(e){}}
 async function loadKnowledge(){try{const r=await fetch(KNOWLEDGE_URL+"?t="+Date.now());if(r.ok)window._knowledge=await r.json();}catch(e){}}
 
+// Deduplicate FY records: keep latest (by date) record per fiscal year
+function dedupFY(arr){
+  var sorted=arr.slice().sort(function(a,b){return a.fy.localeCompare(b.fy)||(a.date||'').localeCompare(b.date||'');});
+  var map={};
+  sorted.forEach(function(r){
+    var key=r.fy;
+    if(!map[key]||(!map[key].sales&&r.sales)||((r.date||'')>=(map[key].date||'')&&(r.sales||r.eps))){map[key]=r;}
+  });
+  return Object.keys(map).sort().map(function(k){return map[k];});
+}
 function fmtYen(v){
   if(v==null)return'-';
   var abs=Math.abs(v);
@@ -588,8 +598,8 @@ function loadFins(){
   document.getElementById('fins-error').style.display='none';
   document.getElementById('fins-stock-name').textContent=code+' '+(found?found.name:'')+' | 業績推移';
 
-  // Separate FY and quarterly records
-  var fyRecords=records.filter(function(r){return r.period==='FY';}).sort(function(a,b){return a.fy.localeCompare(b.fy);});
+  // Separate FY and quarterly records (deduplicate: keep latest record per fy)
+  var fyRecords=dedupFY(records.filter(function(r){return r.period==='FY';}));
   var qRecords=records.filter(function(r){return r.period!=='FY';}).sort(function(a,b){return(a.fy+a.period).localeCompare(b.fy+b.period);});
 
   // Get latest FY record for forecasts
@@ -855,7 +865,7 @@ var simCode='';
 var simBaseData={};
 function initSim(code,finsRecords){
   simCode=code;
-  var fyRecords=finsRecords.filter(function(r){return r.period==='FY';}).sort(function(a,b){return a.fy.localeCompare(b.fy);});
+  var fyRecords=dedupFY(finsRecords.filter(function(r){return r.period==='FY';}));
   if(!fyRecords.length){document.getElementById('sim-section').style.display='none';return;}
   var last=fyRecords[fyRecords.length-1];
   var prev=fyRecords.length>=2?fyRecords[fyRecords.length-2]:null;
@@ -1024,7 +1034,7 @@ function runBacktest(){
   var fd=window._finsData||{};
   var records=fd[simCode];
   if(!records||!records.length){document.getElementById("backtest-result").innerHTML='<div style="color:#f85149;margin-top:8px">業績データがありません</div>';return;}
-  var fyRecords=records.filter(function(r){return r.period==="FY";}).sort(function(a,b){return a.fy.localeCompare(b.fy);});
+  var fyRecords=dedupFY(records.filter(function(r){return r.period==="FY";}));
   if(fyRecords.length<2){return;}
   var h='<div class="fins-section" style="margin-top:16px"><div class="fins-section-title">業績予想バックテスト（予想 vs 実績）</div>';
   h+='<div class="table-wrap"><table class="fins-table"><thead><tr><th>決算期</th><th>予想売上</th><th>実績売上</th><th>乖離</th><th>予想EPS</th><th>実績EPS</th><th>乖離</th></tr></thead><tbody>';
