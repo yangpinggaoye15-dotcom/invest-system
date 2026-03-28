@@ -80,7 +80,13 @@
       <button onclick="switchTF('weekly')" id="tf-weekly" class="reset-btn">週足</button>
       <button onclick="switchTF('monthly')" id="tf-monthly" class="reset-btn">月足</button>
       <span style="margin-left:12px"></span>
-      <button onclick="toggleIdxCompare()" id="idx-compare-btn" class="reset-btn">指数比較</button>
+      <select id="idx-compare-select" onchange="onIdxCompareChange()" style="background:#161b22;border:1px solid #30363d;border-radius:6px;color:#8b949e;padding:4px 8px;font-size:12px">
+        <option value="">指数比較: OFF</option>
+        <option value="nikkei225">vs 日経225</option>
+        <option value="sp500">vs S&P500</option>
+        <option value="dow">vs ダウ</option>
+        <option value="nasdaq">vs NASDAQ</option>
+      </select>
     </div>
     <div id="chart-patterns" style="margin-top:6px"></div>
   </div>
@@ -523,7 +529,7 @@ function loadChart(){
   window.addEventListener('resize',function(){if(lwChart)lwChart.applyOptions({width:container.clientWidth});});
   analyzeVolume(ohlcv);
   renderStockTrend(ohlcv);
-  idxCompareOn=false;idxCompareSeries=null;var icb=document.getElementById('idx-compare-btn');if(icb){icb.style.background='';icb.style.color='';icb.style.borderColor='';icb.style.fontWeight='';}
+  idxCompareKey='';idxCompareSeries=null;var ics=document.getElementById('idx-compare-select');if(ics)ics.value='';
 }
 function openChart(code){
   showPage('chart',document.querySelectorAll('.nav-btn')[1]);
@@ -1398,18 +1404,16 @@ function renderStockTrend(ohlcv){
 }
 
 // === Feature: Index vs Stock Comparison ===
-var idxCompareOn=false,idxCompareSeries=null;
-function toggleIdxCompare(){
-  idxCompareOn=!idxCompareOn;
-  var btn=document.getElementById('idx-compare-btn');
-  if(idxCompareOn){btn.style.background='#f0b429';btn.style.color='#0d1117';btn.style.borderColor='#f0b429';btn.style.fontWeight='600';}
-  else{btn.style.background='';btn.style.color='';btn.style.borderColor='';btn.style.fontWeight='';}
-  if(idxCompareOn)showIdxCompare();
+var idxCompareSeries=null,idxCompareKey='';
+function onIdxCompareChange(){
+  var sel=document.getElementById('idx-compare-select');
+  idxCompareKey=sel?sel.value:'';
+  if(idxCompareKey)showIdxCompare();
   else hideIdxCompare();
 }
 function showIdxCompare(){
   if(!lwChart||!candleSeries)return;
-  var nk=(window._indexData||{}).nikkei225;
+  var nk=(window._indexData||{})[idxCompareKey];
   var code=(document.getElementById('chart-code-input')||{}).value||'';
   var cd=window._chartData||{};var stockData=cd[code];
   if(!nk||!nk.length||!stockData||!stockData.length){return;}
@@ -1432,7 +1436,8 @@ function showIdxCompare(){
   // Add line on same price scale (no extra axis)
   try{if(idxCompareSeries)lwChart.removeSeries(idxCompareSeries);}catch(e){}
   idxCompareSeries=null;
-  idxCompareSeries=lwChart.addLineSeries({color:'#ff6b6b',lineWidth:2,lineStyle:2,priceLineVisible:false,lastValueVisible:false,title:'日経225'});
+  var idxNames={nikkei225:'日経225',sp500:'S&P500',dow:'ダウ',nasdaq:'NASDAQ'};
+  idxCompareSeries=lwChart.addLineSeries({color:'#ff6b6b',lineWidth:2,lineStyle:2,priceLineVisible:false,lastValueVisible:false,title:idxNames[idxCompareKey]||''});
   idxCompareSeries.setData(nkScaled);
 }
 function hideIdxCompare(){
