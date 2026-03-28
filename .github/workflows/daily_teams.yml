@@ -1,0 +1,54 @@
+name: Daily Investment Teams
+
+on:
+  workflow_run:
+    workflows: ["Daily Stock Screening"]
+    types: [completed]
+  workflow_dispatch:
+
+jobs:
+  run-teams:
+    runs-on: ubuntu-latest
+    # スクリーニング成功後、または手動実行時のみ動作
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    timeout-minutes: 60
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install anthropic
+
+      - name: Clone invest-data (for latest screening data)
+        env:
+          DATA_REPO_TOKEN: ${{ secrets.DATA_REPO_TOKEN }}
+        run: |
+          git clone https://x-access-token:${DATA_REPO_TOKEN}@github.com/yangpinggaoye15-dotcom/invest-data.git invest-data
+
+      - name: Run all investment teams
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          INVEST_DATA_DIR: invest-data
+        run: python run_teams.py all
+
+      - name: Push reports to invest-data repo
+        env:
+          DATA_REPO_TOKEN: ${{ secrets.DATA_REPO_TOKEN }}
+        run: |
+          mkdir -p invest-data/reports
+          cp reports/daily/*.md invest-data/reports/ 2>/dev/null || true
+          cd invest-data
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "teams: $(date +'%Y-%m-%d')"
+          git push

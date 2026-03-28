@@ -60,7 +60,23 @@
 .trend-up{background:#0d2d15;color:#3fb950}.trend-down{background:#1c0a0a;color:#f85149}.trend-flat{background:#2d2a0a;color:#f0b429}
 .trend-banner{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .trend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:#8b949e}
-</style><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#f0b429"><script src="lightweight-charts.js"></script></head><body><div class="header"><div class="logo">MINERVINI TERMINAL <span>yohei</span></div><div class="updated" id="updated">読み込み中...</div></div><div class="nav"><button class="nav-btn active" onclick="showPage('screening',this)">スクリーニング</button><button class="nav-btn" onclick="showPage('chart',this)">チャート</button><button class="nav-btn" onclick="showPage('fins',this)">業績</button><button class="nav-btn" onclick="showPage('watchlist',this)">監視リスト</button><button class="nav-btn" onclick="showPage('portfolio',this)">ポートフォリオ</button><button class="nav-btn" onclick="showPage('health',this)">市況</button></div><div class="page active" id="page-screening"><div class="metrics"><div class="metric"><div class="metric-label">対象銘柄</div><div class="metric-value muted" id="m-total">-</div></div><div class="metric"><div class="metric-label">PASS 6/7+</div><div class="metric-value green" id="m-pass">-</div></div><div class="metric"><div class="metric-label">満点 7/7</div><div class="metric-value gold" id="m-perfect">-</div></div><div class="metric"><div class="metric-label">高値更新圏</div><div class="metric-value gold" id="m-nearhigh">-</div></div></div><div class="filter-panel"><div class="search-box"><span style="color:#8b949e;font-size:14px">&#128269;</span><input type="text" id="search-input" placeholder="銘柄コード・銘柄名で検索..." oninput="applyFilters()"></div><div class="filter-row"><span class="filter-label">スコア</span><div class="slider-wrap"><input type="range" id="score-slider" min="1" max="7" value="6" step="1" oninput="updateLabel('score-slider','score-val',v=>v+'/7以上')"><span class="slider-val" id="score-val">6/7以上</span></div></div><div class="filter-row"><span class="filter-label">高値比</span><div class="slider-wrap"><input type="range" id="highpct-slider" min="70" max="100" value="90" step="1" oninput="updateLabel('highpct-slider','highpct-val',v=>v+'%以上')"><span class="slider-val" id="highpct-val">90%以上</span></div></div><div class="filter-row"><span class="filter-label">RS26w</span><div class="toggle-wrap"><div class="toggle" id="rs-toggle" onclick="toggleRS()"></div><span class="toggle-label" id="rs-label">全て表示</span></div></div><div class="filter-row"><span class="filter-label">並び順</span><div class="slider-wrap"><select id="sort-select" onchange="applyFilters()" style="background:#161b22;border:1px solid #30363d;border-radius:6px;color:#e6edf3;padding:4px 8px;font-size:12px;flex:1"><option value="score">スコア順</option><option value="rs26w">RS26w強い順</option><option value="high_pct">高値比順</option><option value="price">株価順</option><option value="pattern">パターン優先</option></select></div></div><div class="custom-filter">
+.report-body{font-size:14px;line-height:1.7;color:#e6edf3}
+.report-body h1{font-size:18px;font-weight:700;color:#f0b429;margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid #30363d}
+.report-body h2{font-size:15px;font-weight:600;color:#f0b429;margin:20px 0 8px}
+.report-body h3{font-size:13px;font-weight:600;color:#79c0ff;margin:14px 0 6px}
+.report-body p{margin:0 0 10px;color:#e6edf3}
+.report-body table{width:100%;border-collapse:collapse;margin:8px 0 14px;font-size:12px;overflow-x:auto;display:block}
+.report-body th{background:#161b22;padding:6px 10px;text-align:left;color:#8b949e;border-bottom:1px solid #30363d;white-space:nowrap}
+.report-body td{padding:6px 10px;border-bottom:1px solid #21262d;white-space:nowrap}
+.report-body tr:hover td{background:#161b22}
+.report-body ul,.report-body ol{margin:0 0 10px;padding-left:20px}
+.report-body li{margin-bottom:4px}
+.report-body code{background:#161b22;border-radius:4px;padding:1px 5px;font-family:monospace;font-size:12px;color:#79c0ff}
+.report-body hr{border:none;border-top:1px solid #30363d;margin:16px 0}
+.report-body strong{color:#f0b429;font-weight:600}
+.report-date-btn{padding:4px 10px;font-size:12px;border:1px solid #30363d;border-radius:6px;background:none;color:#8b949e;cursor:pointer}
+.report-date-btn.active{background:#f0b429;color:#0d1117;border-color:#f0b429;font-weight:600}
+</style><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#f0b429"><script src="lightweight-charts.js"></script></head><body><div class="header"><div class="logo">MINERVINI TERMINAL <span>yohei</span></div><div class="updated" id="updated">読み込み中...</div></div><div class="nav"><button class="nav-btn active" onclick="showPage('screening',this)">スクリーニング</button><button class="nav-btn" onclick="showPage('chart',this)">チャート</button><button class="nav-btn" onclick="showPage('fins',this)">業績</button><button class="nav-btn" onclick="showPage('watchlist',this)">監視リスト</button><button class="nav-btn" onclick="showPage('portfolio',this)">ポートフォリオ</button><button class="nav-btn" onclick="showPage('health',this)">市況</button><button class="nav-btn" onclick="showPage('report',this)">レポート</button></div><div class="page active" id="page-screening"><div class="metrics"><div class="metric"><div class="metric-label">対象銘柄</div><div class="metric-value muted" id="m-total">-</div></div><div class="metric"><div class="metric-label">PASS 6/7+</div><div class="metric-value green" id="m-pass">-</div></div><div class="metric"><div class="metric-label">満点 7/7</div><div class="metric-value gold" id="m-perfect">-</div></div><div class="metric"><div class="metric-label">高値更新圏</div><div class="metric-value gold" id="m-nearhigh">-</div></div></div><div class="filter-panel"><div class="search-box"><span style="color:#8b949e;font-size:14px">&#128269;</span><input type="text" id="search-input" placeholder="銘柄コード・銘柄名で検索..." oninput="applyFilters()"></div><div class="filter-row"><span class="filter-label">スコア</span><div class="slider-wrap"><input type="range" id="score-slider" min="1" max="7" value="6" step="1" oninput="updateLabel('score-slider','score-val',v=>v+'/7以上')"><span class="slider-val" id="score-val">6/7以上</span></div></div><div class="filter-row"><span class="filter-label">高値比</span><div class="slider-wrap"><input type="range" id="highpct-slider" min="70" max="100" value="90" step="1" oninput="updateLabel('highpct-slider','highpct-val',v=>v+'%以上')"><span class="slider-val" id="highpct-val">90%以上</span></div></div><div class="filter-row"><span class="filter-label">RS26w</span><div class="toggle-wrap"><div class="toggle" id="rs-toggle" onclick="toggleRS()"></div><span class="toggle-label" id="rs-label">全て表示</span></div></div><div class="filter-row"><span class="filter-label">並び順</span><div class="slider-wrap"><select id="sort-select" onchange="applyFilters()" style="background:#161b22;border:1px solid #30363d;border-radius:6px;color:#e6edf3;padding:4px 8px;font-size:12px;flex:1"><option value="score">スコア順</option><option value="rs26w">RS26w強い順</option><option value="high_pct">高値比順</option><option value="price">株価順</option><option value="pattern">パターン優先</option></select></div></div><div class="custom-filter">
 <div class="custom-filter-row">
 <input class="custom-filter-input" id="custom-input" placeholder="例: rs26w > 0.5  /  high_pct > 0.97 && score == 7" oninput="applyFilters()">
 <button class="custom-filter-btn" onclick="savePreset()">保存</button>
@@ -197,6 +213,16 @@
   <div style="padding:0 14px"><div id="health-chart" style="width:100%;height:200px;background:#0d1117;border-radius:8px"></div></div>
   <div class="section-header" style="margin-top:16px"><div class="section-title">セクター分布（監視+保有）</div></div>
   <div id="sector-dist" class="sector-bar-wrap"></div>
+</div>
+<div class="page" id="page-report">
+  <div class="section-header">
+    <div class="section-title">デイリーレポート</div>
+    <div id="report-date-display" style="font-size:12px;color:#8b949e"></div>
+  </div>
+  <div style="padding:10px 14px;display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid #21262d" id="report-date-btns"></div>
+  <div id="report-loading" style="display:none;padding:40px;text-align:center;color:#8b949e">読み込み中...</div>
+  <div id="report-error" style="display:none;padding:20px 16px;color:#f85149;font-size:13px"></div>
+  <div id="report-body" class="report-body" style="padding:16px 14px"></div>
 </div>
 <button class="chat-btn" onclick="toggleChat()" title="AIチャット">&#129302;</button>
 <div class="chat-panel" id="chat-panel">
@@ -412,7 +438,7 @@ async function sendChat(){
     if(sendBtn) sendBtn.disabled=false;
   }
 }
-function closeDetail(){document.getElementById("detail-panel").classList.remove("open");document.getElementById("overlay").classList.remove("show");}function showPage(n,btn){document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));document.getElementById("page-"+n).classList.add("active");btn.classList.add("active");}
+function closeDetail(){document.getElementById("detail-panel").classList.remove("open");document.getElementById("overlay").classList.remove("show");}
 var lwChart=null,candleSeries=null,volumeSeries=null,sma50Series=null,sma150Series=null,sma200Series=null;
 function loadChart(){
   var code=(document.getElementById('chart-code-input')||{}).value||'';
@@ -1447,4 +1473,99 @@ function hideIdxCompare(){
 
 loadData();loadChartData();loadPatternData();loadFinsData();loadTimeline();loadKnowledge();loadWatchlist();loadPortfolio();loadIndexData();renderPresets();setTimeout(loadCash,500);setTimeout(function(){initPosCalc();renderSectorDist();},1000);
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}
+
+// ─── レポートページ ────────────────────────────────────────────
+var REPORT_BASE='https://raw.githubusercontent.com/yangpinggaoye15-dotcom/invest-data/main/reports/';
+var reportLoaded=false;
+
+function showPage(n,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+n).classList.add('active');
+  btn.classList.add('active');
+  if(n==='report'&&!reportLoaded){initReportPage();}
+}
+
+function mdToHtml(md){
+  var lines=md.split('\n');
+  var html='';
+  var inTable=false;
+  for(var i=0;i<lines.length;i++){
+    var l=lines[i];
+    // table
+    if(l.match(/^\|.+\|$/)){
+      if(!inTable){html+='<table>';inTable=true;}
+      var sep=l.replace(/^\||\|$/g,'').split('|').map(function(c){return c.trim();});
+      if(l.match(/^[\|\s\-:]+$/)){continue;}// separator row
+      var isHead=(i+1<lines.length&&lines[i+1].match(/^[\|\s\-:]+$/));
+      html+='<tr>'+sep.map(function(c){
+        c=applyInline(c);
+        return isHead?'<th>'+c+'</th>':'<td>'+c+'</td>';
+      }).join('')+'</tr>';
+      continue;
+    } else if(inTable){html+='</table>';inTable=false;}
+    // headings
+    if(l.match(/^### /)){html+='<h3>'+applyInline(l.slice(4))+'</h3>';continue;}
+    if(l.match(/^## /)){html+='<h2>'+applyInline(l.slice(3))+'</h2>';continue;}
+    if(l.match(/^# /)){html+='<h1>'+applyInline(l.slice(2))+'</h1>';continue;}
+    // hr
+    if(l.match(/^---+$/)){html+='<hr>';continue;}
+    // list
+    if(l.match(/^[-*] /)){html+='<ul><li>'+applyInline(l.slice(2))+'</li></ul>';continue;}
+    if(l.match(/^\d+\. /)){html+='<ol><li>'+applyInline(l.replace(/^\d+\. /,''))+'</li></ol>';continue;}
+    // blank line
+    if(l.trim()===''){html+='<br>';continue;}
+    html+='<p>'+applyInline(l)+'</p>';
+  }
+  if(inTable)html+='</table>';
+  // merge consecutive list items
+  html=html.replace(/<\/ul>\s*<ul>/g,'').replace(/<\/ol>\s*<ol>/g,'');
+  return html;
+}
+
+function applyInline(t){
+  t=t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  t=t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  t=t.replace(/`(.+?)`/g,'<code>$1</code>');
+  return t;
+}
+
+function initReportPage(){
+  // 直近7日分のボタンを生成
+  var btns=document.getElementById('report-date-btns');
+  var today=new Date();
+  btns.innerHTML='<button class="report-date-btn active" onclick="loadReport(\'latest_report\',this)">最新</button>';
+  for(var i=0;i<7;i++){
+    var d=new Date(today);d.setDate(d.getDate()-i);
+    var y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+    var ds=y+'-'+m+'-'+day;
+    btns.innerHTML+='<button class="report-date-btn" onclick="loadReport(\''+ds+'_daily_report\',this)">'+m+'/'+day+'</button>';
+  }
+  loadReport('latest_report',btns.querySelector('.report-date-btn'));
+  reportLoaded=true;
+}
+
+async function loadReport(name,btn){
+  if(btn){
+    document.querySelectorAll('.report-date-btn').forEach(function(b){b.classList.remove('active');});
+    btn.classList.add('active');
+  }
+  var loading=document.getElementById('report-loading');
+  var error=document.getElementById('report-error');
+  var body=document.getElementById('report-body');
+  loading.style.display='block';error.style.display='none';body.innerHTML='';
+  try{
+    var res=await fetch(REPORT_BASE+name+'.md?_='+Date.now());
+    if(!res.ok)throw new Error('レポートが見つかりません（'+name+'）');
+    var md=await res.text();
+    body.innerHTML=mdToHtml(md);
+    var m=md.match(/日付:\s*(\S+)/);
+    document.getElementById('report-date-display').textContent=m?m[1]:'';
+  }catch(e){
+    error.textContent=e.message||'読み込みエラー';
+    error.style.display='block';
+  }finally{
+    loading.style.display='none';
+  }
+}
 </script></body></html>
