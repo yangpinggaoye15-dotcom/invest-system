@@ -26,7 +26,7 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        run: pip install anthropic
+        run: pip install anthropic requests
 
       - name: Clone invest-data (for latest screening data)
         env:
@@ -37,6 +37,7 @@ jobs:
       - name: Run all investment teams
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API: ${{ secrets.GEMINI_API }}
           INVEST_DATA_DIR: invest-data
         run: python run_teams.py all
 
