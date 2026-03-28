@@ -23,6 +23,7 @@ from datetime import datetime, timedelta
 
 import requests
 import pandas as pd
+import numpy as np
 
 # ---------------------------------------------------------------------------
 # Paths & constants
@@ -599,6 +600,87 @@ def update():
     log.info(f"更新完了! {total}銘柄  PASS:{pass_count}  ERR:{errors}  "
              f"所要:{elapsed_min}分")
     log.info(f"結果: {RESULTS_FILE}")
+
+# ---------------------------------------------------------------------------
+# Index data export (Nikkei225 + US indices via yfinance)
+# ---------------------------------------------------------------------------
+
+def _sanitize_for_json(val):
+    """NaN/Inf を None に変換"""
+    if val is None:
+        return None
+    if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
+        return None
+    return val
+
+def export_index_data():
+    """日経225 + 米国主要指数のOHLCVを index_data.json に出力"""
+    _GITHUB_DIR = Path(os.environ.get("INVEST_GITHUB_DIR",
+                                       r"C:\Users\yohei\Documents\invest-system-github"))
+    out = {}
+
+    # --- Nikkei 225 (ETF 1321 via J-Quants) ---
+    try:
+        bars = _fetch_daily(NIKKEI225_CODE, days=300)
+        df = _daily_to_df(bars)
+        ohlcv = []
+        for idx, row in df.iterrows():
+            ohlcv.append({
+                "time": idx.strftime("%Y-%m-%d"),
+                "open":  _sanitize_for_json(round(float(row["open"]), 1)),
+                "high":  _sanitize_for_json(round(float(row["high"]), 1)),
+                "low":   _sanitize_for_json(round(float(row["low"]), 1)),
+                "close": _sanitize_for_json(round(float(row["close"]), 1)),
+            })
+        out["nikkei225"] = ohlcv
+        log.info(f"Nikkei225 index: {len(ohlcv)} days")
+    except Exception as e:
+        log.warning(f"Nikkei225 index export failed: {e}")
+        out["nikkei225"] = []
+
+    # --- US Indices via yfinance ---
+    us_indices = {
+        "sp500":  "^GSPC",
+        "dow":    "^DJI",
+        "nasdaq": "^IXIC",
+    }
+    try:
+        import yfinance as yf
+        for name, ticker in us_indices.items():
+            try:
+                data = yf.download(ticker, period="1y", progress=False, auto_adjust=True)
+                if data.empty:
+                    log.warning(f"{name} ({ticker}): no data")
+                    out[name] = []
+                    continue
+                # Handle MultiIndex columns from yfinance
+                if isinstance(data.columns, pd.MultiIndex):
+                    data.columns = data.columns.get_level_values(0)
+                ohlcv = []
+                for idx, row in data.iterrows():
+                    ohlcv.append({
+                        "time": idx.strftime("%Y-%m-%d"),
+                        "open":  _sanitize_for_json(round(float(row["Open"]), 2)),
+                        "high":  _sanitize_for_json(round(float(row["High"]), 2)),
+                        "low":   _sanitize_for_json(round(float(row["Low"]), 2)),
+                        "close": _sanitize_for_json(round(float(row["Close"]), 2)),
+                    })
+                out[name] = ohlcv
+                log.info(f"{name} ({ticker}): {len(ohlcv)} days")
+            except Exception as e:
+                log.warning(f"{name} ({ticker}) failed: {e}")
+                out[name] = []
+    except ImportError:
+        log.warning("yfinance not installed, skipping US indices")
+        for name in us_indices:
+            out[name] = []
+
+    # Save
+    out_path = _GITHUB_DIR / "index_data.json"
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False)
+    log.info(f"Index data saved: {out_path}")
+
 
 # ---------------------------------------------------------------------------
 # Entry point

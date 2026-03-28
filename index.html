@@ -55,6 +55,11 @@
 .sector-bar{height:20px;background:#f0b429;border-radius:3px;min-width:2px;transition:width .3s}
 .sector-count{font-size:11px;color:#e6edf3;margin-left:4px}
 .equity-chart-wrap{padding:0 14px 12px}
+.idx-tab.active{background:#f0b429 !important;color:#0d1117 !important;border-color:#f0b429 !important;font-weight:600}
+.trend-badge{display:inline-block;padding:3px 10px;border-radius:4px;font-size:12px;font-weight:600}
+.trend-up{background:#0d2d15;color:#3fb950}.trend-down{background:#1c0a0a;color:#f85149}.trend-flat{background:#2d2a0a;color:#f0b429}
+.trend-banner{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.trend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:#8b949e}
 </style><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#f0b429"><script src="lightweight-charts.js"></script></head><body><div class="header"><div class="logo">MINERVINI TERMINAL <span>yohei</span></div><div class="updated" id="updated">読み込み中...</div></div><div class="nav"><button class="nav-btn active" onclick="showPage('screening',this)">スクリーニング</button><button class="nav-btn" onclick="showPage('chart',this)">チャート</button><button class="nav-btn" onclick="showPage('fins',this)">業績</button><button class="nav-btn" onclick="showPage('watchlist',this)">監視リスト</button><button class="nav-btn" onclick="showPage('portfolio',this)">ポートフォリオ</button><button class="nav-btn" onclick="showPage('health',this)">市況</button></div><div class="page active" id="page-screening"><div class="metrics"><div class="metric"><div class="metric-label">対象銘柄</div><div class="metric-value muted" id="m-total">-</div></div><div class="metric"><div class="metric-label">PASS 6/7+</div><div class="metric-value green" id="m-pass">-</div></div><div class="metric"><div class="metric-label">満点 7/7</div><div class="metric-value gold" id="m-perfect">-</div></div><div class="metric"><div class="metric-label">高値更新圏</div><div class="metric-value gold" id="m-nearhigh">-</div></div></div><div class="filter-panel"><div class="search-box"><span style="color:#8b949e;font-size:14px">&#128269;</span><input type="text" id="search-input" placeholder="銘柄コード・銘柄名で検索..." oninput="applyFilters()"></div><div class="filter-row"><span class="filter-label">スコア</span><div class="slider-wrap"><input type="range" id="score-slider" min="1" max="7" value="6" step="1" oninput="updateLabel('score-slider','score-val',v=>v+'/7以上')"><span class="slider-val" id="score-val">6/7以上</span></div></div><div class="filter-row"><span class="filter-label">高値比</span><div class="slider-wrap"><input type="range" id="highpct-slider" min="70" max="100" value="90" step="1" oninput="updateLabel('highpct-slider','highpct-val',v=>v+'%以上')"><span class="slider-val" id="highpct-val">90%以上</span></div></div><div class="filter-row"><span class="filter-label">RS26w</span><div class="toggle-wrap"><div class="toggle" id="rs-toggle" onclick="toggleRS()"></div><span class="toggle-label" id="rs-label">全て表示</span></div></div><div class="filter-row"><span class="filter-label">並び順</span><div class="slider-wrap"><select id="sort-select" onchange="applyFilters()" style="background:#161b22;border:1px solid #30363d;border-radius:6px;color:#e6edf3;padding:4px 8px;font-size:12px;flex:1"><option value="score">スコア順</option><option value="rs26w">RS26w強い順</option><option value="high_pct">高値比順</option><option value="price">株価順</option><option value="pattern">パターン優先</option></select></div></div><div class="custom-filter">
 <div class="custom-filter-row">
 <input class="custom-filter-input" id="custom-input" placeholder="例: rs26w > 0.5  /  high_pct > 0.97 && score == 7" oninput="applyFilters()">
@@ -74,12 +79,15 @@
       <button onclick="switchTF('daily')" id="tf-daily" class="reset-btn" style="background:#f0b429;color:#0d1117;border-color:#f0b429;font-weight:600">日足</button>
       <button onclick="switchTF('weekly')" id="tf-weekly" class="reset-btn">週足</button>
       <button onclick="switchTF('monthly')" id="tf-monthly" class="reset-btn">月足</button>
+      <span style="margin-left:12px"></span>
+      <button onclick="toggleIdxCompare()" id="idx-compare-btn" class="reset-btn">指数比較</button>
     </div>
     <div id="chart-patterns" style="margin-top:6px"></div>
   </div>
   <div id="chart-loading" style="display:none;padding:40px;text-align:center;color:#8b949e">読み込み中...</div>
   <div id="chart-error" style="display:none;padding:20px 16px;color:#f85149;font-size:13px"></div>
   <div style="padding:8px 14px;display:flex;gap:12px;flex-wrap:wrap" id="chart-legend"></div>
+  <div id="chart-trend-badge" style="padding:4px 14px"></div>
   <div id="chart-container"></div>
   <div id="vol-analysis" class="vol-summary"></div>
 </div><div class="page" id="page-fins">
@@ -161,12 +169,22 @@
 </div>
 <div class="page" id="page-health">
   <div class="section-header"><div class="section-title">市況モニター</div><div class="section-count" id="health-date"></div></div>
+  <div id="market-trend-banner" style="padding:12px 14px;background:#161b22;border-bottom:1px solid #21262d"></div>
   <div class="health-metrics">
     <div class="health-metric"><div class="health-metric-label">PASS銘柄数</div><div class="health-metric-value gold" id="hm-pass">-</div></div>
     <div class="health-metric"><div class="health-metric-label">満点 7/7</div><div class="health-metric-value green" id="hm-perfect">-</div></div>
     <div class="health-metric"><div class="health-metric-label">高値更新圏</div><div class="health-metric-value gold" id="hm-nearhigh">-</div></div>
   </div>
-  <div style="padding:0 14px"><div id="health-chart" style="width:100%;height:300px;background:#0d1117;border-radius:8px"></div></div>
+  <div style="padding:8px 14px;display:flex;gap:4px;border-bottom:1px solid #21262d">
+    <button class="reset-btn idx-tab" onclick="switchIndex('nikkei225',this)" style="background:#f0b429;color:#0d1117;border-color:#f0b429;font-weight:600">日経225</button>
+    <button class="reset-btn idx-tab" onclick="switchIndex('sp500',this)">S&P500</button>
+    <button class="reset-btn idx-tab" onclick="switchIndex('dow',this)">ダウ</button>
+    <button class="reset-btn idx-tab" onclick="switchIndex('nasdaq',this)">NASDAQ</button>
+  </div>
+  <div id="idx-perf" style="padding:8px 14px;font-size:12px;display:flex;gap:16px;flex-wrap:wrap"></div>
+  <div style="padding:0 14px"><div id="index-chart" style="width:100%;height:300px;background:#0d1117;border-radius:8px"></div></div>
+  <div class="section-header" style="margin-top:16px"><div class="section-title">PASS銘柄数の推移</div></div>
+  <div style="padding:0 14px"><div id="health-chart" style="width:100%;height:200px;background:#0d1117;border-radius:8px"></div></div>
   <div class="section-header" style="margin-top:16px"><div class="section-title">セクター分布（監視+保有）</div></div>
   <div id="sector-dist" class="sector-bar-wrap"></div>
 </div>
@@ -500,6 +518,9 @@ function loadChart(){
   lwChart.timeScale().fitContent();
   window.addEventListener('resize',function(){if(lwChart)lwChart.applyOptions({width:container.clientWidth});});
   analyzeVolume(ohlcv);
+  renderStockTrend(ohlcv);
+  idxCompareOn=false;var icb=document.getElementById('idx-compare-btn');if(icb){icb.style.background='';icb.style.color='';icb.style.borderColor='';icb.style.fontWeight='';}
+  if(idxCompareSeries&&lwChart){lwChart.removeSeries(idxCompareSeries);idxCompareSeries=null;}
 }
 function openChart(code){
   showPage('chart',document.querySelectorAll('.nav-btn')[1]);
@@ -603,10 +624,12 @@ function renderPortfolio(){
 const FINS_DATA_URL=DATA_BASE+"fins_data.json";
 const TIMELINE_URL=DATA_BASE+"timeline_data.json";
 const KNOWLEDGE_URL=DATA_BASE+"knowledge_data.json";
-window._finsData={};window._timeline={};window._knowledge={};
+const INDEX_DATA_URL=DATA_BASE+"index_data.json";
+window._finsData={};window._timeline={};window._knowledge={};window._indexData={};
 async function loadFinsData(){try{const r=await fetch(FINS_DATA_URL+"?t="+Date.now());if(r.ok)window._finsData=await r.json();}catch(e){}}
 async function loadTimeline(){try{const r=await fetch(TIMELINE_URL+"?t="+Date.now());if(r.ok)window._timeline=await r.json();}catch(e){}}
 async function loadKnowledge(){try{const r=await fetch(KNOWLEDGE_URL+"?t="+Date.now());if(r.ok)window._knowledge=await r.json();}catch(e){}}
+async function loadIndexData(){try{const r=await fetch(INDEX_DATA_URL+"?t="+Date.now());if(r.ok){window._indexData=await r.json();renderIndexChart();renderMarketTrend();}}catch(e){}}
 
 // Deduplicate FY records: keep latest (by date) record per fiscal year
 function dedupFY(arr){
@@ -1284,6 +1307,117 @@ function renderSectorDist(){
   el.innerHTML=h;
 }
 
-loadData();loadChartData();loadPatternData();loadFinsData();loadTimeline();loadKnowledge();loadWatchlist();loadPortfolio();renderPresets();setTimeout(loadCash,500);setTimeout(function(){initPosCalc();renderSectorDist();},1000);
+// === Feature: Index Charts ===
+var indexChart=null,curIdx='nikkei225';
+function switchIndex(name,btn){
+  curIdx=name;
+  document.querySelectorAll('.idx-tab').forEach(function(b){b.classList.remove('active');b.style.background='';b.style.color='';b.style.borderColor='';});
+  if(btn){btn.classList.add('active');btn.style.background='#f0b429';btn.style.color='#0d1117';btn.style.borderColor='#f0b429';}
+  renderIndexChart();
+}
+function renderIndexChart(){
+  var data=(window._indexData||{})[curIdx];
+  var container=document.getElementById('index-chart');
+  if(!container)return;
+  if(!data||!data.length){container.innerHTML='<div style="padding:40px;text-align:center;color:#8b949e;font-size:12px">指数データなし（GitHub Actions実行後に表示されます）</div>';return;}
+  container.innerHTML='';
+  indexChart=LightweightCharts.createChart(container,{
+    width:container.clientWidth,height:300,
+    layout:{background:{type:'solid',color:'#0d1117'},textColor:'#8b949e'},
+    grid:{vertLines:{color:'#161b22'},horzLines:{color:'#161b22'}},
+    rightPriceScale:{borderColor:'#30363d'},
+    timeScale:{borderColor:'#30363d',timeVisible:false},
+  });
+  var cs=indexChart.addCandlestickSeries({upColor:'#26a69a',downColor:'#ef5350',borderUpColor:'#26a69a',borderDownColor:'#ef5350',wickUpColor:'#26a69a',wickDownColor:'#ef5350'});
+  cs.setData(data.map(function(d){return{time:d.time,open:d.open,high:d.high,low:d.low,close:d.close};}));
+  indexChart.timeScale().fitContent();
+  window.addEventListener('resize',function(){if(indexChart)indexChart.applyOptions({width:container.clientWidth});});
+  // Performance display
+  renderIdxPerf(data);
+}
+function renderIdxPerf(data){
+  var el=document.getElementById('idx-perf');if(!el||!data.length)return;
+  var last=data[data.length-1].close;
+  function pct(daysAgo){var idx=Math.max(0,data.length-1-daysAgo);var old=data[idx].close;return old?((last-old)/old*100):0;}
+  function fmtPct(v){var cls=v>=0?'color:#3fb950':'color:#f85149';return '<span style="'+cls+';font-weight:600">'+(v>=0?'+':'')+v.toFixed(1)+'%</span>';}
+  var names={nikkei225:'日経225',sp500:'S&P 500',dow:'ダウ平均',nasdaq:'NASDAQ'};
+  el.innerHTML='<span style="font-size:13px;font-weight:600;color:#f0b429">'+(names[curIdx]||curIdx)+'</span> '+
+    '<span style="color:#e6edf3;font-size:13px;font-weight:600">'+Number(last.toFixed(0)).toLocaleString()+'</span> '+
+    '1日: '+fmtPct(pct(1))+' | 1週: '+fmtPct(pct(5))+' | 1月: '+fmtPct(pct(22))+' | 3月: '+fmtPct(pct(66));
+}
+
+// === Feature: Trend Analysis ===
+function calcTrend(closes){
+  if(!closes||closes.length<200)return{trend:'unknown',label:'データ不足',cls:'trend-flat'};
+  var n=closes.length;var price=closes[n-1];
+  var sma50=0,sma150=0,sma200=0;
+  for(var i=n-50;i<n;i++)sma50+=closes[i];sma50/=50;
+  for(var i=n-150;i<n;i++)sma150+=closes[i];sma150/=150;
+  for(var i=n-200;i<n;i++)sma200+=closes[i];sma200/=200;
+  // SMA200 direction (compare current vs 1 month ago)
+  var sma200prev=0;for(var i=n-200-22;i<n-22;i++){if(i>=0)sma200prev+=closes[i];}sma200prev/=200;
+  var sma200up=sma200>sma200prev;
+  if(price>sma50&&sma50>sma150&&sma150>sma200&&sma200up)return{trend:'up',label:'上昇トレンド',cls:'trend-up'};
+  if(price<sma50&&sma50<sma150)return{trend:'down',label:'下降トレンド',cls:'trend-down'};
+  return{trend:'flat',label:'横ばい',cls:'trend-flat'};
+}
+function renderMarketTrend(){
+  var el=document.getElementById('market-trend-banner');if(!el)return;
+  var names={nikkei225:'日経225',sp500:'S&P 500',dow:'ダウ',nasdaq:'NASDAQ'};
+  var h='<div class="trend-banner">';
+  ['nikkei225','sp500','dow','nasdaq'].forEach(function(key){
+    var data=(window._indexData||{})[key];
+    if(!data||!data.length){h+='<div class="trend-item">'+names[key]+': <span class="trend-badge trend-flat">-</span></div>';return;}
+    var closes=data.map(function(d){return d.close;});
+    var t=calcTrend(closes);
+    h+='<div class="trend-item">'+names[key]+': <span class="trend-badge '+t.cls+'">'+t.label+'</span></div>';
+  });
+  h+='</div>';
+  el.innerHTML=h;
+}
+// Trend badge for individual stock on chart page
+function renderStockTrend(ohlcv){
+  var el=document.getElementById('chart-trend-badge');if(!el)return;
+  if(!ohlcv||ohlcv.length<200){el.innerHTML='';return;}
+  var closes=ohlcv.map(function(d){return d.close;});
+  var t=calcTrend(closes);
+  el.innerHTML='<span class="trend-badge '+t.cls+'">'+t.label+'</span>';
+}
+
+// === Feature: Index vs Stock Comparison ===
+var idxCompareOn=false,idxCompareSeries=null;
+function toggleIdxCompare(){
+  idxCompareOn=!idxCompareOn;
+  var btn=document.getElementById('idx-compare-btn');
+  if(idxCompareOn){btn.style.background='#f0b429';btn.style.color='#0d1117';btn.style.borderColor='#f0b429';btn.style.fontWeight='600';}
+  else{btn.style.background='';btn.style.color='';btn.style.borderColor='';btn.style.fontWeight='';}
+  if(idxCompareOn)showIdxCompare();
+  else hideIdxCompare();
+}
+function showIdxCompare(){
+  if(!lwChart||!candleSeries)return;
+  var nk=(window._indexData||{}).nikkei225;
+  var code=(document.getElementById('chart-code-input')||{}).value||'';
+  var cd=window._chartData||{};var stockData=cd[code];
+  if(!nk||!nk.length||!stockData||!stockData.length){return;}
+  // Find overlapping date range
+  var stockMap={};stockData.forEach(function(d){stockMap[d.time]=d.close;});
+  var nkMap={};nk.forEach(function(d){nkMap[d.time]=d.close;});
+  var dates=Object.keys(stockMap).filter(function(d){return nkMap[d];}).sort();
+  if(dates.length<2)return;
+  // Normalize both to % change from first overlapping date
+  var stockBase=stockMap[dates[0]],nkBase=nkMap[dates[0]];
+  var nkNorm=dates.map(function(d){return{time:d,value:((nkMap[d]/nkBase-1)*100)};});
+  // Add normalized line
+  if(idxCompareSeries){lwChart.removeSeries(idxCompareSeries);idxCompareSeries=null;}
+  idxCompareSeries=lwChart.addLineSeries({color:'#ff6b6b',lineWidth:2,lineStyle:2,priceLineVisible:false,lastValueVisible:true,title:'日経225',priceScaleId:'compare'});
+  idxCompareSeries.priceScale().applyOptions({scaleMargins:{top:0.1,bottom:0.1}});
+  idxCompareSeries.setData(nkNorm);
+}
+function hideIdxCompare(){
+  if(lwChart&&idxCompareSeries){lwChart.removeSeries(idxCompareSeries);idxCompareSeries=null;}
+}
+
+loadData();loadChartData();loadPatternData();loadFinsData();loadTimeline();loadKnowledge();loadWatchlist();loadPortfolio();loadIndexData();renderPresets();setTimeout(loadCash,500);setTimeout(function(){initPosCalc();renderSectorDist();},1000);
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(function(){});}
 </script></body></html>

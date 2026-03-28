@@ -23,7 +23,7 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        run: pip install requests pandas plotly mcp
+        run: pip install requests pandas plotly mcp yfinance
 
       - name: Run screening
         env:
@@ -45,6 +45,10 @@ jobs:
           print(s.export_fins_data())
           print(s.export_site_data())
           "
+          python -c "
+          import run_screen_full as r
+          r.export_index_data()
+          "
 
       - name: Commit and push results
         run: |
@@ -63,7 +67,7 @@ jobs:
         run: |
           git clone https://x-access-token:${DATA_REPO_TOKEN}@github.com/yangpinggaoye15-dotcom/invest-data.git invest-data-repo
           cp data/screen_full_results.json invest-data-repo/screen_full_results.json
-          for f in chart_data.json pattern_data.json fins_data.json timeline_data.json knowledge_data.json watchlist.json portfolio.json; do
+          for f in chart_data.json pattern_data.json fins_data.json timeline_data.json knowledge_data.json watchlist.json portfolio.json index_data.json; do
             [ -f "$f" ] && cp "$f" invest-data-repo/ || true
           done
           cd invest-data-repo
