@@ -991,7 +991,7 @@ def detect_phase(screen_data: list) -> dict:
 
 
 # ─── Team 8: 検証チーム ────────────────────────────────────────────
-MAX_SIM_SLOTS = 3  # 同時追跡上限
+MAX_SIM_SLOTS = 5  # 同時追跡上限
 
 def _make_new_sim(best: dict) -> dict:
     """候補銘柄からシミュレーションエントリーを生成"""
@@ -1050,10 +1050,12 @@ def run_verification():
     # ── 各アクティブシミュレーションの更新 ──
     completion_notes = []
     remaining = []
+    hypothesis_checks = []  # 仮説検証結果ログ
     for sim in actives:
         code = str(sim.get('code', ''))
         current_stock = stocks_by_code.get(code)
-        current_price = current_stock.get('price', sim.get('entry_price')) if current_stock else sim.get('entry_price')
+        prev_price = sim.get('current_price', sim.get('entry_price'))
+        current_price = current_stock.get('price', prev_price) if current_stock else prev_price
         entry = sim['entry_price']
         stop = sim['stop_loss']
         target1 = sim['target1']
@@ -1063,6 +1065,36 @@ def run_verification():
         sim['current_price'] = current_price
         pct = (current_price - entry) / entry * 100 if entry else 0
         sim['current_pct'] = round(pct, 2)
+
+        # ── 前日仮説の検証（平日のみ） ──
+        if IS_MARKET_DAY and sim.get('next_hypothesis') and prev_price:
+            hyp = sim['next_hypothesis']
+            actual_direction = '上昇' if current_price > prev_price else ('下落' if current_price < prev_price else '横ばい')
+            hyp_direction = hyp.get('direction', '')
+            match = (hyp_direction == '上昇' and current_price > prev_price) or \
+                    (hyp_direction == '下落' and current_price < prev_price)
+            price_change_pct = (current_price - prev_price) / prev_price * 100 if prev_price else 0
+            result_entry = {
+                'date': TODAY,
+                'hypothesis_date': hyp.get('date', ''),
+                'direction': hyp_direction,
+                'reason': hyp.get('reason', ''),
+                'confidence': hyp.get('confidence', ''),
+                'actual_direction': actual_direction,
+                'prev_price': prev_price,
+                'actual_price': current_price,
+                'price_change_pct': round(price_change_pct, 2),
+                'match': match
+            }
+            if 'hypothesis_history' not in sim:
+                sim['hypothesis_history'] = []
+            sim['hypothesis_history'].append(result_entry)
+            hypothesis_checks.append(
+                f"{sim['name']}: 予測={hyp_direction} 実際={actual_direction} "
+                f"({'○' if match else '×'}) {price_change_pct:+.1f}%"
+            )
+            # 検証済み仮説はクリア（新しいものを後で生成）
+            sim['next_hypothesis'] = None
 
         ended = False
         if current_price <= stop:
@@ -1111,6 +1143,56 @@ def run_verification():
             actives.append(new_sim)
             new_sim_notes.append(f"新規: {best.get('name','')}({best.get('code','')}) EP={best.get('price',0):.0f}円")
 
+    # ── 翌日仮説の生成（平日のみ・仮説がないアクティブ対象） ──
+    sims_needing_hypothesis = [s for s in actives if IS_MARKET_DAY and not s.get('next_hypothesis')]
+    if sims_needing_hypothesis:
+        print(f'  [Claude] 翌日仮説生成中... ({len(sims_needing_hypothesis)}銘柄)')
+        sims_str = json.dumps([{
+            'code': s['code'], 'name': s['name'],
+            'entry_price': s['entry_price'], 'current_price': s['current_price'],
+            'current_pct': s['current_pct'], 'days_elapsed': s['days_elapsed'],
+            'stop_loss': s['stop_loss'], 'target1': s['target1'],
+            'rs_26w': s.get('rs_26w', 0),
+            'hypothesis_history': s.get('hypothesis_history', [])[-3:]
+        } for s in sims_needing_hypothesis], ensure_ascii=False, indent=2)
+
+        hyp_prompt = f"""あなたは投資チームの「分析チーム（テクニカル担当）」です。
+以下の追跡中銘柄について、翌営業日（{TODAY}の翌日）の株価方向仮説を立ててください。
+
+## 追跡銘柄
+{sims_str}
+
+## 要求
+各銘柄について以下をJSON配列で返してください（必ずJSONのみ、説明文不要）:
+[
+  {{
+    "code": "銘柄コード",
+    "direction": "上昇" or "下落" or "横ばい",
+    "reason": "根拠（テクニカル・モメンタム・市場環境から50文字以内）",
+    "confidence": "高" or "中" or "低",
+    "key_level": "注目価格水準（例: 1050円の抵抗帯）"
+  }}
+]"""
+        hyp_response = call_claude(hyp_prompt, max_tokens=1000)
+        try:
+            import re as _re
+            json_match = _re.search(r'\[[\s\S]*\]', hyp_response)
+            if json_match:
+                hypotheses = json.loads(json_match.group())
+                hyp_by_code = {h['code']: h for h in hypotheses if isinstance(h, dict)}
+                for sim in sims_needing_hypothesis:
+                    hyp = hyp_by_code.get(sim['code'])
+                    if hyp:
+                        sim['next_hypothesis'] = {
+                            'date': TODAY,
+                            'direction': hyp.get('direction', ''),
+                            'reason': hyp.get('reason', ''),
+                            'confidence': hyp.get('confidence', ''),
+                            'key_level': hyp.get('key_level', '')
+                        }
+        except Exception as e:
+            print(f'  [警告] 仮説JSON解析失敗: {e}')
+
     log['actives'] = actives
     log['last_updated'] = TODAY
     sim_log_path.write_text(json.dumps(log, ensure_ascii=False, indent=2), encoding='utf-8')
@@ -1129,7 +1211,13 @@ def run_verification():
     # ── Gemini: 精度向上のための情報収集 ──
     print(f'  [Gemini] 検証情報収集中... ({DAY_LABEL})')
     active_names = ', '.join(a['name'] for a in actives) if actives else 'なし'
-    sim_summary = f"追跡中({len(actives)}件): {active_names} / 累計{len(completed)}件完了 / 勝率{win_rate:.0f}%"
+    hyp_check_str = '\n'.join(hypothesis_checks) if hypothesis_checks else 'なし（週末または仮説未設定）'
+    # 仮説精度計算
+    all_hyp = [h for a in (actives + history) for h in a.get('hypothesis_history', [])]
+    hyp_total = len(all_hyp)
+    hyp_hits = sum(1 for h in all_hyp if h.get('match'))
+    hyp_accuracy = hyp_hits / hyp_total * 100 if hyp_total else 0
+    sim_summary = f"追跡中({len(actives)}件): {active_names} / 累計{len(completed)}件完了 / 勝率{win_rate:.0f}% / 仮説的中率{hyp_accuracy:.0f}%"
     g_prompt = f"""投資シミュレーションの精度向上に役立つ情報を収集してください。
 
 現在の状況: {sim_summary}
@@ -1163,6 +1251,9 @@ def run_verification():
 - 完了: {', '.join(completion_notes) if completion_notes else 'なし'}
 - 新規開始: {', '.join(new_sim_notes) if new_sim_notes else 'なし'}
 
+## 翌日仮説の検証結果（本日）
+{hyp_check_str}
+
 ## シミュレーション履歴（直近10件）
 {history_str}
 
@@ -1172,6 +1263,7 @@ def run_verification():
 - 平均利益: {avg_win:+.1f}%
 - 平均損失: {avg_loss:+.1f}%
 - 方向一致率: {dir_accuracy:.1f}%
+- 翌日仮説的中率: {hyp_accuracy:.1f}%（{hyp_hits}/{hyp_total}件）
 
 ## 分析チームレポート（参照）
 {analysis_report[:800]}
@@ -1197,20 +1289,31 @@ def run_verification():
 | 完了件数 | {len(completed)}件 | 積み上げ中 | - |
 | 勝率 | {win_rate:.1f}% | 50%以上 | {'✅' if win_rate >= 50 else '⚠️' if completed else '-'} |
 | 方向一致率 | {dir_accuracy:.1f}% | 50%→60% | {'✅' if dir_accuracy >= 50 else '⚠️' if completed else '-'} |
+| 翌日仮説的中率 | {hyp_accuracy:.1f}% | 55%以上 | {'✅' if hyp_accuracy >= 55 else '⚠️' if hyp_total else '-'} |
 | 平均利益 | {avg_win:+.1f}% | +25%以上 | {'✅' if avg_win >= 25 else '⚠️' if wins else '-'} |
 | 平均損失 | {avg_loss:+.1f}% | -8%以内 | {'✅' if avg_loss >= -8 else '⚠️' if losses else '-'} |
 
+## 翌日仮説検証（本日の差異分析）
+担当: **分析チーム（テクニカル担当）→ 検証チーム**
+（本日の仮説結果: {hyp_check_str}）
+（外れた場合は具体的な原因を分析: 想定外の材料、サポート割れ、出来高異常等）
+
+## 明日の仮説（分析チームが生成済み）
+（simulation_log.jsonのnext_hypothesisフィールドに記録済み。各銘柄の根拠を補足説明）
+
 ## 直近の結果振り返り
-（直近3件の予測 vs 実際を分析し、外れた原因を明記）
+担当: **検証チーム**
+（直近3件の売買結果: 予測 vs 実際を分析し、外れた原因を明記）
 
 ## 分析精度の改善提案
-### 分析チームへ
+### → 分析チームへ（担当: 検証チーム → 分析チーム）
 （Aランク選定基準の改善点）
 
-### 投資戦略チームへ
+### → 投資戦略チームへ（担当: 検証チーム → 投資戦略チーム）
 （エントリータイミング・損切り設定の改善点）
 
 ## 学習パターン
+担当: **検証チーム**
 （蓄積データから見えてきた傾向・法則）
 
 ## 参考: 精度向上のためのベストプラクティス
