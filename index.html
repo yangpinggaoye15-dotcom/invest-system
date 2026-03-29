@@ -60,7 +60,42 @@
 .trend-up{background:#0d2d15;color:#3fb950}.trend-down{background:#1c0a0a;color:#f85149}.trend-flat{background:#2d2a0a;color:#f0b429}
 .trend-banner{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .trend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:#8b949e}
-</style><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#f0b429"><script src="lightweight-charts.js"></script></head><body><div class="header"><div class="logo">MINERVINI TERMINAL <span>yohei</span></div><div class="updated" id="updated">読み込み中...</div></div><div class="nav"><button class="nav-btn active" onclick="showPage('screening',this)">スクリーニング</button><button class="nav-btn" onclick="showPage('chart',this)">チャート</button><button class="nav-btn" onclick="showPage('fins',this)">業績</button><button class="nav-btn" onclick="showPage('watchlist',this)">監視リスト</button><button class="nav-btn" onclick="showPage('portfolio',this)">ポートフォリオ</button><button class="nav-btn" onclick="showPage('health',this)">市況</button></div><div class="page active" id="page-screening"><div class="metrics"><div class="metric"><div class="metric-label">対象銘柄</div><div class="metric-value muted" id="m-total">-</div></div><div class="metric"><div class="metric-label">PASS 6/7+</div><div class="metric-value green" id="m-pass">-</div></div><div class="metric"><div class="metric-label">満点 7/7</div><div class="metric-value gold" id="m-perfect">-</div></div><div class="metric"><div class="metric-label">高値更新圏</div><div class="metric-value gold" id="m-nearhigh">-</div></div></div><div class="filter-panel"><div class="search-box"><span style="color:#8b949e;font-size:14px">&#128269;</span><input type="text" id="search-input" placeholder="銘柄コード・銘柄名で検索..." oninput="applyFilters()"></div><div class="filter-row"><span class="filter-label">スコア</span><div class="slider-wrap"><input type="range" id="score-slider" min="1" max="7" value="6" step="1" oninput="updateLabel('score-slider','score-val',v=>v+'/7以上')"><span class="slider-val" id="score-val">6/7以上</span></div></div><div class="filter-row"><span class="filter-label">高値比</span><div class="slider-wrap"><input type="range" id="highpct-slider" min="70" max="100" value="90" step="1" oninput="updateLabel('highpct-slider','highpct-val',v=>v+'%以上')"><span class="slider-val" id="highpct-val">90%以上</span></div></div><div class="filter-row"><span class="filter-label">RS26w</span><div class="toggle-wrap"><div class="toggle" id="rs-toggle" onclick="toggleRS()"></div><span class="toggle-label" id="rs-label">全て表示</span></div></div><div class="filter-row"><span class="filter-label">並び順</span><div class="slider-wrap"><select id="sort-select" onchange="applyFilters()" style="background:#161b22;border:1px solid #30363d;border-radius:6px;color:#e6edf3;padding:4px 8px;font-size:12px;flex:1"><option value="score">スコア順</option><option value="rs26w">RS26w強い順</option><option value="high_pct">高値比順</option><option value="price">株価順</option><option value="pattern">パターン優先</option></select></div></div><div class="custom-filter">
+/* ── Simulation ── */
+.sim-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;padding:14px}
+.sim-card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px}
+.sim-card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.sim-name{font-size:14px;font-weight:600;color:#e6edf3}
+.sim-code{font-size:11px;color:#8b949e;font-family:monospace}
+.sim-pct{font-size:18px;font-weight:700;font-family:monospace}
+.sim-pct.pos{color:#3fb950}.sim-pct.neg{color:#f85149}.sim-pct.neu{color:#8b949e}
+.sim-row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
+.sim-row-label{color:#8b949e}.sim-row-val{color:#e6edf3;font-family:monospace}
+.sim-progress{background:#21262d;border-radius:4px;height:6px;margin:10px 0 4px;overflow:hidden}
+.sim-progress-bar{height:100%;border-radius:4px;background:#f0b429;transition:width .3s}
+.sim-days{font-size:11px;color:#8b949e;text-align:right}
+.sim-result-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.sim-result-badge.win{background:#0d2d15;color:#3fb950}
+.sim-result-badge.loss{background:#1c0a0a;color:#f85149}
+.sim-result-badge.time{background:#2d2a0a;color:#f0b429}
+.sim-empty{padding:40px 20px;text-align:center;color:#8b949e;font-size:13px}
+.sim-hist-wrap{padding:0 14px 20px}
+/* ── Mobile ── */
+@media(max-width:480px){
+  .metrics{grid-template-columns:repeat(2,1fr)}
+  .filter-label{width:44px;font-size:10px}
+  .slider-wrap{min-width:120px}
+  .health-metrics{grid-template-columns:repeat(2,1fr) !important}
+  #index-chart{height:220px !important}
+  #health-chart{height:160px !important}
+  .detail-panel{max-height:92vh}
+  .detail-grid{grid-template-columns:1fr}
+  .conditions-grid{grid-template-columns:1fr}
+  .sim-grid{grid-template-columns:1fr}
+  .section-header{padding:8px 10px}
+  .chat-panel{width:100% !important;right:0 !important;bottom:0 !important;border-radius:16px 16px 0 0 !important}
+  th,td{padding:6px 8px}
+}
+</style><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#f0b429"><script src="lightweight-charts.js"></script></head><body><div class="header"><div class="logo">MINERVINI TERMINAL <span>yohei</span></div><div class="updated" id="updated">読み込み中...</div></div><div class="nav"><button class="nav-btn active" onclick="showPage('screening',this)">スクリーニング</button><button class="nav-btn" onclick="showPage('chart',this)">チャート</button><button class="nav-btn" onclick="showPage('fins',this)">業績</button><button class="nav-btn" onclick="showPage('watchlist',this)">監視リスト</button><button class="nav-btn" onclick="showPage('portfolio',this)">ポートフォリオ</button><button class="nav-btn" onclick="showPage('health',this)">市況</button><button class="nav-btn" onclick="showPage('simulation',this)">シミュレーション</button></div><div class="page active" id="page-screening"><div class="metrics"><div class="metric"><div class="metric-label">対象銘柄</div><div class="metric-value muted" id="m-total">-</div></div><div class="metric"><div class="metric-label">PASS 6/7+</div><div class="metric-value green" id="m-pass">-</div></div><div class="metric"><div class="metric-label">満点 7/7</div><div class="metric-value gold" id="m-perfect">-</div></div><div class="metric"><div class="metric-label">高値更新圏</div><div class="metric-value gold" id="m-nearhigh">-</div></div></div><div class="filter-panel"><div class="search-box"><span style="color:#8b949e;font-size:14px">&#128269;</span><input type="text" id="search-input" placeholder="銘柄コード・銘柄名で検索..." oninput="applyFilters()"></div><div class="filter-row"><span class="filter-label">スコア</span><div class="slider-wrap"><input type="range" id="score-slider" min="1" max="7" value="6" step="1" oninput="updateLabel('score-slider','score-val',v=>v+'/7以上')"><span class="slider-val" id="score-val">6/7以上</span></div></div><div class="filter-row"><span class="filter-label">高値比</span><div class="slider-wrap"><input type="range" id="highpct-slider" min="70" max="100" value="90" step="1" oninput="updateLabel('highpct-slider','highpct-val',v=>v+'%以上')"><span class="slider-val" id="highpct-val">90%以上</span></div></div><div class="filter-row"><span class="filter-label">RS26w</span><div class="toggle-wrap"><div class="toggle" id="rs-toggle" onclick="toggleRS()"></div><span class="toggle-label" id="rs-label">全て表示</span></div></div><div class="filter-row"><span class="filter-label">並び順</span><div class="slider-wrap"><select id="sort-select" onchange="applyFilters()" style="background:#161b22;border:1px solid #30363d;border-radius:6px;color:#e6edf3;padding:4px 8px;font-size:12px;flex:1"><option value="score">スコア順</option><option value="rs26w">RS26w強い順</option><option value="high_pct">高値比順</option><option value="price">株価順</option><option value="pattern">パターン優先</option></select></div></div><div class="custom-filter">
 <div class="custom-filter-row">
 <input class="custom-filter-input" id="custom-input" placeholder="例: rs26w > 0.5  /  high_pct > 0.97 && score == 7" oninput="applyFilters()">
 <button class="custom-filter-btn" onclick="savePreset()">保存</button>
@@ -197,6 +232,19 @@
   <div style="padding:0 14px"><div id="health-chart" style="width:100%;height:200px;background:#0d1117;border-radius:8px"></div></div>
   <div class="section-header" style="margin-top:16px"><div class="section-title">セクター分布（監視+保有）</div></div>
   <div id="sector-dist" class="sector-bar-wrap"></div>
+</div>
+<div class="page" id="page-simulation">
+  <div class="section-header"><div class="section-title">シミュレーション追跡</div><div class="section-count" id="sim-count">読み込み中...</div></div>
+  <div id="sim-active-grid" class="sim-grid"><div class="sim-empty">データを読み込み中...</div></div>
+  <div class="section-header" style="margin-top:8px"><div class="section-title">追跡履歴</div><div class="section-count" id="sim-hist-count"></div></div>
+  <div class="sim-hist-wrap table-wrap">
+    <table id="sim-hist-table">
+      <thead><tr>
+        <th>銘柄</th><th>コード</th><th class="r">EP</th><th class="r">終了値</th><th class="r">損益%</th><th>結果</th><th>日数</th><th>開始日</th>
+      </tr></thead>
+      <tbody id="sim-hist-body"><tr><td colspan="8" style="text-align:center;color:#8b949e;padding:20px">-</td></tr></tbody>
+    </table>
+  </div>
 </div>
 <button class="chat-btn" onclick="toggleChat()" title="AIチャット">&#129302;</button>
 <div class="chat-panel" id="chat-panel">
@@ -412,7 +460,79 @@ async function sendChat(){
     if(sendBtn) sendBtn.disabled=false;
   }
 }
-function closeDetail(){document.getElementById("detail-panel").classList.remove("open");document.getElementById("overlay").classList.remove("show");}function showPage(n,btn){document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));document.getElementById("page-"+n).classList.add("active");btn.classList.add("active");}
+function closeDetail(){document.getElementById("detail-panel").classList.remove("open");document.getElementById("overlay").classList.remove("show");}function showPage(n,btn){document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));document.getElementById("page-"+n).classList.add("active");btn.classList.add("active");if(n==='simulation')initSimPage();}
+const SIM_URL="https://raw.githubusercontent.com/yangpinggaoye15-dotcom/invest-data/main/reports/simulation_log.json";
+let simLoaded=false;
+async function initSimPage(){
+  if(simLoaded)return;
+  simLoaded=true;
+  try{
+    const r=await fetch(SIM_URL+"?t="+Date.now());
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    const log=await r.json();
+    renderSimPage(log);
+  }catch(e){
+    document.getElementById("sim-active-grid").innerHTML='<div class="sim-empty">読み込み失敗: '+e.message+'</div>';
+  }
+}
+function renderSimPage(log){
+  // actives（複数）対応 + 旧フォーマット（active単体）フォールバック
+  const actives=log.actives||(log.active?[log.active]:[]);
+  const history=(log.history||[]).slice().reverse();
+  const grid=document.getElementById("sim-active-grid");
+  document.getElementById("sim-count").textContent=actives.length+"件追跡中";
+  if(actives.length===0){
+    grid.innerHTML='<div class="sim-empty">現在追跡中の銘柄はありません</div>';
+  }else{
+    grid.innerHTML=actives.map(a=>{
+      const pct=a.current_pct||0;
+      const cls=pct>0?'pos':pct<0?'neg':'neu';
+      const prog=Math.min(100,((a.days_elapsed||0)/10)*100);
+      const ep=a.entry_price||0;
+      const sl=a.stop_loss||0;
+      const t1=a.target1||0;
+      const risk=ep>0?((sl-ep)/ep*100).toFixed(1):'';
+      const reward=ep>0?((t1-ep)/ep*100).toFixed(1):'';
+      return `<div class="sim-card">
+        <div class="sim-card-header">
+          <div><div class="sim-name">${a.name||'-'}</div><div class="sim-code">${a.code||'-'}</div></div>
+          <div class="sim-pct ${cls}">${pct>=0?'+':''}${pct.toFixed(2)}%</div>
+        </div>
+        <div class="sim-row"><span class="sim-row-label">エントリー</span><span class="sim-row-val">${ep.toLocaleString()}円</span></div>
+        <div class="sim-row"><span class="sim-row-label">現在値</span><span class="sim-row-val">${(a.current_price||0).toLocaleString()}円</span></div>
+        <div class="sim-row"><span class="sim-row-label">損切り</span><span class="sim-row-val" style="color:#f85149">${sl.toLocaleString()}円 (${risk}%)</span></div>
+        <div class="sim-row"><span class="sim-row-label">目標①</span><span class="sim-row-val" style="color:#3fb950">${t1.toLocaleString()}円 (+${reward}%)</span></div>
+        <div class="sim-row"><span class="sim-row-label">RS26w</span><span class="sim-row-val">${(a.rs_26w||0).toFixed(2)}</span></div>
+        <div class="sim-progress"><div class="sim-progress-bar" style="width:${prog}%"></div></div>
+        <div class="sim-days">${a.days_elapsed||0}/10日経過</div>
+      </div>`;
+    }).join('');
+  }
+  // 履歴テーブル
+  document.getElementById("sim-hist-count").textContent=history.length+"件";
+  const tbody=document.getElementById("sim-hist-body");
+  if(history.length===0){
+    tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:#8b949e;padding:20px">履歴なし</td></tr>';
+    return;
+  }
+  const resultLabel={stopped_out:'損切り',target1_hit:'目標①',time_expired:'期間終了'};
+  const resultCls={stopped_out:'loss',target1_hit:'win',time_expired:'time'};
+  tbody.innerHTML=history.map(h=>{
+    const pct=h.result_pct||0;
+    const cls=pct>0?'pos':pct<0?'neg':'neu';
+    const res=h.result||'-';
+    return `<tr>
+      <td class="name">${h.name||'-'}</td>
+      <td class="code">${h.code||'-'}</td>
+      <td class="r">${(h.entry_price||0).toLocaleString()}</td>
+      <td class="r">${(h.current_price||h.entry_price||0).toLocaleString()}</td>
+      <td class="r ${cls}" style="font-family:monospace">${pct>=0?'+':''}${pct.toFixed(1)}%</td>
+      <td><span class="sim-result-badge ${resultCls[res]||''}">${resultLabel[res]||res}</span></td>
+      <td style="color:#8b949e">${h.days_elapsed||0}日</td>
+      <td style="color:#8b949e">${h.start_date||'-'}</td>
+    </tr>`;
+  }).join('');
+}
 var lwChart=null,candleSeries=null,volumeSeries=null,sma50Series=null,sma150Series=null,sma200Series=null;
 function loadChart(){
   var code=(document.getElementById('chart-code-input')||{}).value||'';
