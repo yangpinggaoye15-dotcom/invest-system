@@ -171,23 +171,29 @@ https://invest-system-six.vercel.app/
 ### simulation_log.json フォーマット
 ```json
 {
-  "active": {
-    "code": "1234",
-    "name": "銘柄名",
-    "entry_date": "2026-03-29",
-    "entry_price": 1000,
-    "stop_loss": 950,
-    "target1": 1100,
-    "target2": 1200,
-    "status": "active",
-    "days_held": 3,
-    "last_price": 1050
-  },
+  "tracking_rule": "2週間(10営業日)追跡・最大3銘柄同時",
+  "actives": [
+    {
+      "code": "1234",
+      "name": "銘柄名",
+      "entry_price": 1000,
+      "stop_loss": 950,
+      "target1": 1100,
+      "rr_ratio": 3.1,
+      "start_date": "2026-03-29",
+      "days_elapsed": 3,
+      "current_price": 1050,
+      "current_pct": 5.0,
+      "result": null
+    }
+  ],
   "history": [...]
 }
 ```
+- **最大3銘柄同時追跡**（`MAX_SIM_SLOTS = 3`）
 - `run_verification()` (Team 8) が毎日自動更新
-- 終了後は自動で次の候補を選定（直近30日以内に追跡した銘柄を除外）
+- 終了後は即座に次の候補を選定（直近30日以内に追跡した銘柄を除外）
+- 旧フォーマット（`active`単体）から自動移行
 
 ### detect_phase() — 市場フェーズ自動判定
 ```python
@@ -210,9 +216,19 @@ https://invest-system-six.vercel.app/
 - **Phase 1 目標**: 月次損益・勝率・PF・DDの達成状況
 - データ元: `invest-data/reports/simulation_log.json` + `kpi_log.json`
 
+### シミュレーションタブ（`page-simulation`）
+- **アクティブカード**: 最大3銘柄を同時表示（損益%・進捗バー・損切り/目標ライン）
+- **履歴テーブル**: 全追跡結果（結果バッジ: 損切り/目標①/期間終了）
+- データ元: `invest-data/reports/simulation_log.json`
+
 ### レポートページ改善
 - **チームタブ**: 8チームを個別に閲覧可能（デフォルト: 統合レポート）
 - **日付ナビ**: 直近14日分のボタンで過去レポートに遷移
+
+### モバイル最適化（≤480px）
+- メトリクスグリッド: 4列→2列
+- シミュレーションカード: 1列表示
+- チャート高さ縮小・フィルターパネルコンパクト化
 
 ---
 
