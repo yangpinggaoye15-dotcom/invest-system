@@ -555,9 +555,18 @@ function loadDateReport(date,btn){
   currentReportDate=date;
   document.querySelectorAll('.report-date-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  document.querySelectorAll('.report-team-btn').forEach(b=>b.classList.remove('active'));
-  document.querySelector('.report-team-btn').classList.add('active');
-  loadReport('daily/'+date+'_daily_report');
+  // 日付選択時: チームタブがある場合はそのチームの日付版を試みる、なければ統合レポート
+  const activeTeam=currentReportTeam||'latest_report';
+  const isIntegrated=activeTeam==='latest_report'||activeTeam==='report';
+  if(isIntegrated){
+    loadReport(date+'_daily_report');
+  }else{
+    // チーム別は日付版ファイルが存在しないため統合レポートにフォールバック
+    document.querySelectorAll('.report-team-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelector('.report-team-btn').classList.add('active');
+    currentReportTeam='latest_report';
+    loadReport(date+'_daily_report');
+  }
 }
 const SIM_URL="https://raw.githubusercontent.com/yangpinggaoye15-dotcom/invest-data/main/reports/simulation_log.json";
 let simLoaded=false;
@@ -573,10 +582,28 @@ async function initSimPage(){
     document.getElementById("sim-active-grid").innerHTML='<div class="sim-empty">読み込み失敗: '+e.message+'</div>';
   }
 }
+function normalizeSim(s){
+  // 旧フォーマットのフィールド名を新フォーマットに統一
+  return {
+    code: s.code||s.stock_code||'',
+    name: s.name||s.stock_name||s.company_name||'-',
+    entry_price: s.entry_price||s.entry_target||s.purchase_price||0,
+    stop_loss: s.stop_loss||s.stop_target||0,
+    target1: s.target1||s.target_price||s.profit_target||0,
+    current_price: s.current_price||s.entry_price||s.entry_target||0,
+    current_pct: s.current_pct||0,
+    days_elapsed: s.days_elapsed||s.holding_days||0,
+    rs_26w: s.rs_26w||s.rs26w||0,
+    next_hypothesis: s.next_hypothesis||null,
+    result: s.result||s.actual_result||null,
+    result_pct: s.result_pct||null,
+    start_date: s.start_date||s.entry_date||''
+  };
+}
 function renderSimPage(log){
-  // actives（複数）対応 + 旧フォーマット（active単体）フォールバック
-  const actives=log.actives||(log.active?[log.active]:[]);
-  const history=(log.history||[]).slice().reverse();
+  // actives / simulations(旧) / active(単体旧) の全フォーマット対応
+  const rawActives=log.actives||(log.simulations?log.simulations.filter(s=>!s.result&&!s.actual_result):null)||(log.active?[log.active]:[]);
+  const actives=(rawActives||[]).map(normalizeSim);
   const grid=document.getElementById("sim-active-grid");
   document.getElementById("sim-count").textContent=actives.length+"件追跡中";
   if(actives.length===0){
@@ -619,7 +646,9 @@ function renderSimPage(log){
       </div>`;
     }).join('');
   }
-  // 履歴テーブル
+  // 履歴テーブル（旧simulations配列の完了分も含む）
+  const rawHistory=log.history||(log.simulations?log.simulations.filter(s=>s.result||s.actual_result):[])||[];
+  const history=rawHistory.map(normalizeSim).slice().reverse();
   document.getElementById("sim-hist-count").textContent=history.length+"件";
   const tbody=document.getElementById("sim-hist-body");
   if(history.length===0){
