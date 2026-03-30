@@ -47,12 +47,18 @@ jobs:
         env:
           DATA_REPO_TOKEN: ${{ secrets.DATA_REPO_TOKEN }}
         run: |
+          TODAY=$(date +'%Y-%m-%d')
           mkdir -p invest-data/reports
+          # 最新版として上書きコピー（常に最新を参照できる）
           cp reports/daily/*.md invest-data/reports/ 2>/dev/null || true
           [ -f reports/daily/kpi_log.json ] && cp reports/daily/kpi_log.json invest-data/reports/ || true
           [ -f reports/daily/simulation_log.json ] && cp reports/daily/simulation_log.json invest-data/reports/ || true
           [ -f reports/audit_log.md ] && cp reports/audit_log.md invest-data/reports/ || true
           [ -f reports/daily/shared_context.md ] && cp reports/daily/shared_context.md invest-data/reports/ || true
+          # 日付付きチームレポートを保存（過去日付ナビ用）
+          for team in info_gathering analysis risk strategy internal_audit security verification hr_report; do
+            [ -f reports/daily/${team}.md ] && cp reports/daily/${team}.md invest-data/reports/${TODAY}_${team}.md || true
+          done
           cd invest-data
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

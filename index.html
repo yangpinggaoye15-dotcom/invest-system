@@ -577,6 +577,26 @@ function selectReportTeam(team,btn){
   document.querySelectorAll('.report-date-btn').forEach(b=>b.classList.remove('active'));
   loadReport(team);
 }
+async function loadReportWithFallback(primary,fallback){
+  const el=document.getElementById('report-body');
+  el.innerHTML='<div class="loading"><div class="spinner"></div><div class="loading-text">読み込み中...</div></div>';
+  try{
+    const url=REPORT_BASE+(primary.endsWith('.md')?primary:primary+'.md')+'?t='+Date.now();
+    const r=await fetch(url);
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    el.innerHTML=mdToHtml(await r.text());
+  }catch(e){
+    // フォールバック: 最新版を表示
+    try{
+      const url2=REPORT_BASE+(fallback.endsWith('.md')?fallback:fallback+'.md')+'?t='+Date.now();
+      const r2=await fetch(url2);
+      if(!r2.ok)throw new Error('HTTP '+r2.status);
+      el.innerHTML='<div style="font-size:11px;color:#8b949e;padding:6px 14px;border-bottom:1px solid #21262d">※ '+date+'のレポートが見つからないため最新版を表示しています</div>'+mdToHtml(await r2.text());
+    }catch(e2){
+      el.innerHTML='<div class="error-box">読み込み失敗: '+e2.message+'</div>';
+    }
+  }
+}
 function loadDateReport(date,btn){
   currentReportDate=date;
   document.querySelectorAll('.report-date-btn').forEach(b=>b.classList.remove('active'));
@@ -584,11 +604,11 @@ function loadDateReport(date,btn){
   const activeTeam=currentReportTeam||'latest_report';
   const isIntegrated=activeTeam==='latest_report'||activeTeam==='report';
   if(isIntegrated){
-    // 統合レポートタブ選択中 → 日付付き統合レポートを表示
+    // 統合レポートタブ → 日付付き統合レポート
     loadReport(date+'_daily_report');
   }else{
-    // チーム別タブ選択中 → そのチームの当日レポートをそのまま表示（タブは維持）
-    loadReport(activeTeam);
+    // チームタブ → 日付付きチームレポート（なければ最新版にフォールバック）
+    loadReportWithFallback(date+'_'+activeTeam, activeTeam);
   }
 }
 const SIM_URL="https://raw.githubusercontent.com/yangpinggaoye15-dotcom/invest-data/main/reports/simulation_log.json";
