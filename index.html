@@ -581,17 +581,14 @@ function loadDateReport(date,btn){
   currentReportDate=date;
   document.querySelectorAll('.report-date-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  // 日付選択時: チームタブがある場合はそのチームの日付版を試みる、なければ統合レポート
   const activeTeam=currentReportTeam||'latest_report';
   const isIntegrated=activeTeam==='latest_report'||activeTeam==='report';
   if(isIntegrated){
+    // 統合レポートタブ選択中 → 日付付き統合レポートを表示
     loadReport(date+'_daily_report');
   }else{
-    // チーム別は日付版ファイルが存在しないため統合レポートにフォールバック
-    document.querySelectorAll('.report-team-btn').forEach(b=>b.classList.remove('active'));
-    document.querySelector('.report-team-btn').classList.add('active');
-    currentReportTeam='latest_report';
-    loadReport(date+'_daily_report');
+    // チーム別タブ選択中 → そのチームの当日レポートをそのまま表示（タブは維持）
+    loadReport(activeTeam);
   }
 }
 const SIM_URL="https://raw.githubusercontent.com/yangpinggaoye15-dotcom/invest-data/main/reports/simulation_log.json";
