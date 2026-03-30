@@ -229,6 +229,51 @@ def build_kpi_check_prompt() -> str:
     return '\n'.join(lines)
 
 
+# ─── 共有情報ハブ（shared_context） ──────────────────────────────
+SHARED_CTX_PATH = REPORT_DIR / 'shared_context.md'
+
+def read_shared_context() -> str:
+    return SHARED_CTX_PATH.read_text(encoding='utf-8') if SHARED_CTX_PATH.exists() else '（共有情報なし）'
+
+def update_shared_context(team_name: str, summary: str):
+    """shared_context.md のチームセクションを更新する"""
+    existing = SHARED_CTX_PATH.read_text(encoding='utf-8') if SHARED_CTX_PATH.exists() else f'# shared_context.md（{TODAY}更新）\n'
+    import re as _re
+    section = f'## {team_name}'
+    new_block = f'{section}\n{summary}\n'
+    if section in existing:
+        existing = _re.sub(rf'{re.escape(section)}\n.*?(?=\n##|\Z)', new_block, existing, flags=_re.DOTALL)
+    else:
+        existing += f'\n{new_block}'
+    SHARED_CTX_PATH.write_text(existing, encoding='utf-8')
+
+def get_feedback_prefix(team_key: str) -> str:
+    """Team5の改善提案とTeam9のインセンティブをプロンプト冒頭に注入"""
+    lines = []
+    # Team5（内部監査）の改善提案
+    audit = read_report('internal_audit')
+    if audit != '（未生成）':
+        # 改善提案セクションを抽出（最大200文字）
+        import re as _re
+        m = _re.search(r'## 改善提案.*?\n(.*?)(?=\n##|\Z)', audit, _re.DOTALL)
+        if m:
+            suggestion = m.group(1).strip()[:200]
+            lines.append(f'【前回監査の改善提案】{suggestion}')
+    # Team8（検証）の仮説的中率 → Team2のみ
+    if team_key == 'analysis':
+        verification = read_report('verification')
+        if verification != '（未生成）':
+            import re as _re
+            m = _re.search(r'仮説的中率.*?(\d+\.?\d*)%', verification)
+            if m:
+                lines.append(f'【仮説的中率（累積）】{m.group(1)}%（目標60%）')
+            # 差異分析サマリー
+            m2 = _re.search(r'## (仮説検証結果|差異分析)(.*?)(?=\n##|\Z)', verification, _re.DOTALL)
+            if m2:
+                lines.append(f'【前日差異分析】{m2.group(2).strip()[:300]}')
+    return '\n'.join(lines) + '\n\n' if lines else ''
+
+
 # ─── Team 1: 情報収集 ────────────────────────────────────────────
 def run_info_gathering():
     screen = load_json('screen_full_results.json', [])
@@ -369,6 +414,12 @@ def run_info_gathering():
 {gemini_text}
 
 {output_format}
+
+## 必須: 出力前の3段階検証（省略不可）
+レポートを出力する前に、以下を順番に実施し問題があれば修正してから最終出力すること:
+- 【作業者検証】各担当者: データの前日比異常・根拠なし断定・空欄がないか
+- 【責任者検証】リーダー: 全9セクションが揃っているか・担当者間の矛盾がないか
+- 出力冒頭に「✅ 検証済み（情報収集チームリーダー確認）」と必ず記載する
 """
     write_report('info_gathering', call_claude(prompt))
 
@@ -435,8 +486,10 @@ def run_analysis():
     ]
     vol_str = '\n'.join(vol_highlights) if vol_highlights else '（出来高急増なし）'
 
+    feedback_prefix = get_feedback_prefix('analysis')
+
     if IS_MARKET_DAY:
-        prompt = f"""あなたは投資チームの「銘柄選定・仮説チーム」です。本日 {TODAY} の銘柄分析を行ってください。
+        prompt = f"""{feedback_prefix}あなたは投資チームの「銘柄選定・仮説チーム」です。本日 {TODAY} の銘柄分析を行ってください。
 
 ## 情報収集チームのレポート
 {info_report[:1200]}
@@ -485,6 +538,12 @@ def run_analysis():
 ## 注目パターン（VCP・カップ等）
 
 ## 総合所見
+
+## 必須: 出力前の3段階検証（省略不可）
+- 【テクニカル担当自己検証】MA配置・RSデータに矛盾・誤りがないか
+- 【仮説担当自己検証】前日差異分析の教訓が今日の仮説に反映されているか
+- 【責任者検証】AランクとBランクの区別根拠が明確か・vol_ratio分析が全Aランクに記載されているか
+- 出力冒頭に「✅ 検証済み（銘柄選定・仮説チームリーダー確認）」と必ず記載する
 """
     elif DAY_MODE == 'saturday':
         prev_analysis = read_report('analysis')
@@ -681,6 +740,7 @@ def run_strategy():
     info_report = read_report('info_gathering')
     analysis_report = read_report('analysis')
     risk_report = read_report('risk')
+    strategy_feedback = get_feedback_prefix('strategy')
 
     # ルールベースのフェーズ事前判定（AIへの参考情報として渡す）
     screen = load_json('screen_full_results.json', [])
@@ -786,7 +846,7 @@ def run_strategy():
 ## 来週の戦略上の注意点
 （避けるべき行動・待つべきシグナル）"""
 
-    prompt = f"""あなたは投資チームの「投資戦略チーム」です。{DAY_LABEL}の戦略レポートを作成してください。
+    prompt = f"""{strategy_feedback}あなたは投資チームの「投資戦略チーム」です。{DAY_LABEL}の戦略レポートを作成してください。
 
 ## 情報収集チーム レポート
 {info_report[:1000]}
@@ -1565,6 +1625,104 @@ def run_internal_audit():
     print(f'  -> audit_log.md 更新')
 
 
+# ─── Team 9: 人事部（週次・土曜実行） ────────────────────────────
+def run_hr():
+    """週次KPIランキング・インセンティブ設計・hr_report.md生成"""
+    if DAY_MODE not in ('saturday', 'weekday'):
+        print('  [人事部] 平日・土曜以外はスキップ')
+        return
+
+    # kpi_log.jsonから直近7日分を取得
+    log_path = REPORT_DIR / 'kpi_log.json'
+    kpi_log = []
+    if log_path.exists():
+        try:
+            kpi_log = json.loads(log_path.read_text(encoding='utf-8'))
+        except Exception:
+            pass
+    recent = kpi_log[-7:] if kpi_log else []
+
+    # チーム別平均スコア計算
+    team_scores: dict[str, list[float]] = {}
+    for entry in recent:
+        for t_key, scores in entry.get('teams', {}).items():
+            if isinstance(scores, dict):
+                avg = sum(scores.values()) / len(scores) if scores else 0
+                team_scores.setdefault(t_key, []).append(avg)
+    team_avg = {k: round(sum(v) / len(v), 1) for k, v in team_scores.items()}
+    ranked = sorted(team_avg.items(), key=lambda x: x[1], reverse=True)
+
+    # 各チームの日本語名
+    TEAM_NAMES_JP = {
+        'info': '情報収集チーム', 'analysis': '銘柄選定・仮説チーム',
+        'risk': 'リスク管理チーム', 'strategy': '投資戦略チーム',
+        'report': 'レポート統括', 'verification': 'シミュレーション追跡・検証チーム',
+        'security': 'セキュリティチーム', 'audit': '内部監査チーム',
+    }
+
+    ranking_str = '\n'.join(
+        f'{i+1}位: {TEAM_NAMES_JP.get(k, k)} — {v}点'
+        for i, (k, v) in enumerate(ranked)
+    ) if ranked else '（データなし）'
+
+    mvp_key = ranked[0][0] if ranked else ''
+    mvp_name = TEAM_NAMES_JP.get(mvp_key, mvp_key)
+    mvp_score = ranked[0][1] if ranked else 0
+
+    low_teams = [(TEAM_NAMES_JP.get(k, k), v) for k, v in ranked if v < 6]
+    low_str = '\n'.join(f'- {n}: {s}点' for n, s in low_teams) if low_teams else '（なし）'
+
+    audit_report = read_report('internal_audit')
+    verification_report = read_report('verification')
+
+    prompt = f"""あなたは投資チームの「人事部（CPO）」です。{TODAY}の週次人事評価レポートを作成してください。
+
+## 直近7日間のチーム別平均KPIスコア
+{ranking_str}
+
+## MVP（暫定）
+{mvp_name}（{mvp_score}点）
+
+## 要注意チーム（スコア6未満）
+{low_str}
+
+## 内部監査チームの評価サマリー
+{audit_report[:800]}
+
+## 検証チームの精度サマリー
+{verification_report[:600]}
+
+## 出力フォーマット（必ずこの形式で・200行以内）
+# 人事部 週次レポート [{TODAY}]
+
+## 週次KPIランキング
+| 順位 | チーム | スコア | 前週比 | 評価コメント |
+...
+
+## 今週のMVP
+（チーム名・根拠・他チームへのメッセージ）
+
+## 要注意チームへの改善指示
+（チーム名・具体的改善アクション・期限）
+
+## 来週のインセンティブ設計
+### 全チームへ（プロンプト冒頭注入用）
+（来週各チームプロンプトに追加する文言）
+
+### MVP特別指示
+（MVPチームに来週追加する難度高いタスク）
+
+## 組織KGI達成状況
+（Phase1: 月次+16.7%・勝率50%・PF2.0・DD10%以内 の現状評価）
+
+## 来週の重点目標
+（全組織で重点的に取り組む1〜2項目）
+"""
+    result = call_claude(prompt, max_tokens=4000)
+    write_report('hr_report', result)
+    print(f'  -> hr_report.md 更新 (MVP: {mvp_name} {mvp_score}点)')
+
+
 # ─── メイン ──────────────────────────────────────────────────────
 TEAMS = {
     'info':         ('情報収集チーム',   run_info_gathering),
@@ -1575,16 +1733,41 @@ TEAMS = {
     'verification': ('シミュレーション追跡・検証チーム',       run_verification),
     'security':     ('セキュリティチーム', run_security),
     'audit':        ('内部監査チーム',   run_internal_audit),
+    'hr':           ('人事部',           run_hr),
+}
+
+# チームキー → レポートファイル名のマッピング（shared_context更新用）
+TEAM_REPORT_MAP = {
+    'info':         'info_gathering',
+    'analysis':     'analysis',
+    'risk':         'risk',
+    'strategy':     'strategy',
+    'report':       'latest_report',
+    'verification': 'verification',
+    'security':     'security',
+    'audit':        'internal_audit',
+    'hr':           'hr_report',
 }
 
 if __name__ == '__main__':
     target = sys.argv[1] if len(sys.argv) > 1 else 'all'
+
+    # shared_context をその日の日付でリセット（allモード時のみ）
+    if target == 'all':
+        SHARED_CTX_PATH.write_text(f'# shared_context.md（{TODAY}更新）\n全チームの結論・重要情報を共有するハブ。各チームは必ずこの情報を参照すること。\n', encoding='utf-8')
 
     if target == 'all':
         for key, (name, fn) in TEAMS.items():
             print(f'\n[{name}] 開始...')
             try:
                 fn()
+                # ── shared_context 自動更新（各チームの結論を全チームに共有） ──
+                report_name = TEAM_REPORT_MAP.get(key)
+                if report_name:
+                    report_text = read_report(report_name)
+                    # 先頭300文字をサマリーとして共有
+                    summary = report_text[:400].replace('\n', ' ').strip()
+                    update_shared_context(name, summary)
                 print(f'[{name}] 完了')
             except Exception as e:
                 print(f'[{name}] エラー: {e}', file=sys.stderr)
@@ -1592,6 +1775,10 @@ if __name__ == '__main__':
         name, fn = TEAMS[target]
         print(f'[{name}] 開始...')
         fn()
+        report_name = TEAM_REPORT_MAP.get(target)
+        if report_name:
+            summary = read_report(report_name)[:400].replace('\n', ' ').strip()
+            update_shared_context(name, summary)
         print(f'[{name}] 完了')
     else:
         print(f'不明なチーム: {target}')

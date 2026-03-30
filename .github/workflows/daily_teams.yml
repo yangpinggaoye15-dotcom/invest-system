@@ -52,6 +52,7 @@ jobs:
           [ -f reports/daily/kpi_log.json ] && cp reports/daily/kpi_log.json invest-data/reports/ || true
           [ -f reports/daily/simulation_log.json ] && cp reports/daily/simulation_log.json invest-data/reports/ || true
           [ -f reports/audit_log.md ] && cp reports/audit_log.md invest-data/reports/ || true
+          [ -f reports/daily/shared_context.md ] && cp reports/daily/shared_context.md invest-data/reports/ || true
           cd invest-data
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
