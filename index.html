@@ -280,6 +280,8 @@
     <span>追跡期間: <strong style="color:#e6edf3">10営業日</strong></span>
     <span>同時追跡: <strong style="color:#e6edf3">最大5銘柄</strong></span>
   </div>
+  <div class="section-header" style="margin-top:8px"><div class="section-title">チームKPI 日次評価</div><div class="section-count" id="team-kpi-date"></div></div>
+  <div id="team-kpi-table" class="table-wrap" style="overflow-x:auto"><div style="padding:20px;color:#8b949e;text-align:center">読み込み中...</div></div>
   <div class="section-header" style="margin-top:8px"><div class="section-title">全追跡履歴</div><div class="section-count" id="kpi-hist-count"></div></div>
   <div class="sim-hist-wrap table-wrap">
     <table><thead><tr>
@@ -593,6 +595,37 @@ function loadDateReport(date,btn){
   }
 }
 const SIM_URL="https://raw.githubusercontent.com/yangpinggaoye15-dotcom/invest-data/main/reports/simulation_log.json";
+const KPI_LOG_URL="https://raw.githubusercontent.com/yangpinggaoye15-dotcom/invest-data/main/reports/kpi_log.json";
+const TEAM_KPI_NAMES={info:'情報収集',analysis:'銘柄選定・仮説',risk:'リスク管理',strategy:'投資戦略',report:'レポート統括',verification:'検証',security:'セキュリティ',audit:'内部監査'};
+async function loadKpiLog(){const r=await fetch(KPI_LOG_URL+'?t='+Date.now());if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}
+function renderTeamKpiSection(kpiLog){
+  const el=document.getElementById('team-kpi-table');
+  if(!kpiLog||!kpiLog.length){el.innerHTML='<div style="padding:20px;color:#8b949e;text-align:center">KPIデータなし（初回実行後に表示されます）</div>';return;}
+  const latest=kpiLog[kpiLog.length-1];
+  const prev7=kpiLog.slice(-7);
+  document.getElementById('team-kpi-date').textContent=latest.date||'-';
+  const teams=Object.keys(TEAM_KPI_NAMES);
+  const firstScores=Object.values(latest.teams||{})[0]||{};
+  const kpiKeys=Object.keys(firstScores);
+  let html='<table><thead><tr><th>チーム</th><th class="r">本日</th><th class="r">7日平均</th><th class="r">推移</th>';
+  kpiKeys.forEach(k=>{html+=`<th class="r" style="font-size:10px;color:#8b949e">${k}</th>`;});
+  html+='</tr></thead><tbody>';
+  teams.forEach(key=>{
+    const scores=latest.teams?.[key]||{};
+    const vals=Object.values(scores).filter(v=>typeof v==='number');
+    const avg=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+    const hist7=prev7.map(e=>{const s=e.teams?.[key]||{};const v=Object.values(s).filter(v=>typeof v==='number');return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;}).filter(v=>v!==null);
+    const avg7=hist7.length?hist7.reduce((a,b)=>a+b,0)/hist7.length:null;
+    const trend=avg!==null&&avg7!==null?(avg>avg7+0.3?'↑':avg<avg7-0.3?'↓':'→'):'-';
+    const tc=trend==='↑'?'#3fb950':trend==='↓'?'#f85149':'#8b949e';
+    const sc=avg===null?'#8b949e':avg>=7?'#3fb950':avg>=5?'#f0b429':'#f85149';
+    html+=`<tr><td style="font-size:12px">${TEAM_KPI_NAMES[key]||key}</td><td class="r" style="font-weight:700;color:${sc}">${avg!==null?avg.toFixed(1):'-'}</td><td class="r" style="color:#8b949e;font-size:12px">${avg7!==null?avg7.toFixed(1):'-'}</td><td class="r" style="color:${tc};font-weight:700;font-size:14px">${trend}</td>`;
+    kpiKeys.forEach(k=>{const v=scores[k];const vc=v===undefined?'#8b949e':v>=7?'#3fb950':v>=5?'#f0b429':'#f85149';html+=`<td class="r" style="color:${vc};font-size:12px">${v!==undefined?v:'-'}</td>`;});
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  el.innerHTML=html;
+}
 let simLoaded=false,simLog=null;
 async function loadSimLog(){
   if(simLog)return simLog;
@@ -616,8 +649,10 @@ async function initKpiPage(){
   if(kpiLoaded)return;
   kpiLoaded=true;
   try{
-    const log=await loadSimLog();
+    const[log,kpiLog]=await Promise.all([loadSimLog(),loadKpiLog().catch(()=>null)]);
     renderKpiPage(log);
+    if(kpiLog)renderTeamKpiSection(kpiLog);
+    else document.getElementById('team-kpi-table').innerHTML='<div style="padding:20px;color:#8b949e;text-align:center">KPIデータなし（初回実行後に表示されます）</div>';
   }catch(e){
     document.getElementById("kpi-hist-body").innerHTML='<tr><td colspan="9" style="text-align:center;color:#f85149;padding:20px">読み込み失敗: '+e.message+'</td></tr>';
   }
