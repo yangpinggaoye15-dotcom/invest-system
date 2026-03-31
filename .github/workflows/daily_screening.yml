@@ -2,7 +2,7 @@ name: Daily Stock Screening
 
 on:
   schedule:
-    - cron: '5 6 * * 1-5'
+    - cron: '30 9 * * 1-5'  # 毎平日 18:30 JST
   workflow_dispatch:
 
 jobs:

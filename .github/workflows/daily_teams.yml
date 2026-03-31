@@ -2,7 +2,7 @@ name: Daily Investment Teams
 
 on:
   schedule:
-    - cron: '35 7 * * *'  # 毎日 16:35 JST（平日: 市場分析 / 土: 週次振り返り / 日: 翌週準備）
+    - cron: '30 11 * * *'  # 毎日 20:30 JST（平日: 市場分析 / 土: 週次振り返り / 日: 翌週準備）
   workflow_run:
     workflows: ["Daily Stock Screening"]
     types: [completed]
