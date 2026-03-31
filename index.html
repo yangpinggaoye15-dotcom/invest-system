@@ -557,16 +557,24 @@ function initReportPage(){
   nav.innerHTML=html;
   loadReport('latest_report');
 }
-async function loadReport(filename){
+async function loadReport(filename,fallbackFilename){
   const el=document.getElementById('report-body');
   el.innerHTML='<div class="loading"><div class="spinner"></div><div class="loading-text">読み込み中...</div></div>';
   try{
     const url=REPORT_BASE+(filename.endsWith('.md')?filename:filename+'.md')+'?t='+Date.now();
     const r=await fetch(url);
     if(!r.ok)throw new Error('HTTP '+r.status);
-    const text=await r.text();
-    el.innerHTML=mdToHtml(text);
+    el.innerHTML=mdToHtml(await r.text());
   }catch(e){
+    if(fallbackFilename){
+      try{
+        const url2=REPORT_BASE+(fallbackFilename.endsWith('.md')?fallbackFilename:fallbackFilename+'.md')+'?t='+Date.now();
+        const r2=await fetch(url2);
+        if(!r2.ok)throw new Error('HTTP '+r2.status);
+        el.innerHTML='<div style="font-size:11px;color:#f0b429;padding:6px 14px;border-bottom:1px solid #21262d;background:#1a1500">⚠ このレポートはまだ生成されていません。最新のレポートを表示しています。</div>'+mdToHtml(await r2.text());
+        return;
+      }catch(e2){}
+    }
     el.innerHTML='<div class="error-box">読み込み失敗: '+e.message+'</div>';
   }
 }
@@ -604,8 +612,8 @@ function loadDateReport(date,btn){
   const activeTeam=currentReportTeam||'latest_report';
   const isIntegrated=activeTeam==='latest_report'||activeTeam==='report';
   if(isIntegrated){
-    // 統合レポートタブ → 日付付き統合レポート
-    loadReport(date+'_daily_report');
+    // 統合レポートタブ → 日付付き統合レポート（なければlatest_reportにフォールバック）
+    loadReport(date+'_daily_report','latest_report');
   }else{
     // チームタブ → 日付付きチームレポート（なければ最新版にフォールバック）
     loadReportWithFallback(date+'_'+activeTeam, activeTeam);
