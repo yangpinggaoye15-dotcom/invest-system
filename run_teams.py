@@ -242,7 +242,7 @@ def update_shared_context(team_name: str, summary: str):
     section = f'## {team_name}'
     new_block = f'{section}\n{summary}\n'
     if section in existing:
-        existing = _re.sub(rf'{re.escape(section)}\n.*?(?=\n##|\Z)', new_block, existing, flags=_re.DOTALL)
+        existing = _re.sub(rf'{_re.escape(section)}\n.*?(?=\n##|\Z)', new_block, existing, flags=_re.DOTALL)
     else:
         existing += f'\n{new_block}'
     SHARED_CTX_PATH.write_text(existing, encoding='utf-8')
