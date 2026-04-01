@@ -4,6 +4,13 @@ on:
   schedule:
     - cron: '30 9 * * 1-5'  # 毎平日 18:30 JST
   workflow_dispatch:
+    inputs:
+      fresh:
+        description: '全銘柄フル取得（週次リセット用）'
+        required: false
+        default: 'false'
+        type: choice
+        options: ['false', 'true']
 
 jobs:
   screen:
@@ -25,13 +32,30 @@ jobs:
       - name: Install dependencies
         run: pip install requests pandas plotly mcp yfinance
 
+      - name: Restore CSV cache
+        uses: actions/cache@v4
+        with:
+          path: csv_output
+          key: csv-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            csv-${{ runner.os }}-
+
       - name: Run screening
         env:
           JQUANTS_API_KEY: ${{ secrets.JQUANTS_API_KEY }}
           INVEST_BASE_DIR: ${{ github.workspace }}
         run: |
           mkdir -p data csv_output
-          python run_screen_full.py --fresh
+          # 月曜 or 手動fresh=true の場合はフル取得、それ以外は差分更新
+          DOW=$(date +'%u')  # 1=月曜
+          FRESH_INPUT="${{ github.event.inputs.fresh }}"
+          if [ "$FRESH_INPUT" = "true" ] || [ "$DOW" = "1" ]; then
+            echo "FRESH MODE（月曜 or 手動指定）"
+            python run_screen_full.py --fresh
+          else
+            echo "UPDATE MODE（差分更新 - 直近5日のみ取得）"
+            python run_screen_full.py --update
+          fi
 
       - name: Export chart, pattern, and financial data
         env:
