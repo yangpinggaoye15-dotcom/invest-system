@@ -109,6 +109,8 @@
 8. **各mdファイルを200行超にしない** → AIの精度低下防止
 9. **`run_teams.py` の kpi_log.json 出力はキーを英語・値を数値にすること** → `index.html` は英語キー（`info`, `analysis`等）+ 数値（10点換算）を期待
 10. **`score`・`rs_26w` が null の銘柄に対し `or 0` でフォールバックすること** → Python の None との比較/フォーマットでTypeError発生を防ぐ
+11. **`screen_full_results.json` はdict形式（コードをキー）** → `isinstance(screen, list)` では常に空になる。`screen_to_list()` を使うこと
+12. **`run_screen_full.py` の PARALLEL_WORKERS は3以下にすること** → 15だとJ-Quants 429エラーで98.9%失敗する
 
 ---
 
