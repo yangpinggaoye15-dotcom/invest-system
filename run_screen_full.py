@@ -234,6 +234,12 @@ def _minervini(df: pd.DataFrame) -> dict:
     _today = _date.today()
     _ytd_days = min((_today - _date(_today.year, 1, 1)).days + 1, len(c))
     ytd_high = c[-_ytd_days:].max()
+    try:
+        _ytd_argmax = int(c[-_ytd_days:].argmax())
+        _ytd_idx = len(df) - _ytd_days + _ytd_argmax
+        ytd_high_date = df.index[_ytd_idx].strftime("%Y-%m-%d")
+    except Exception:
+        ytd_high_date = None
     volume     = int(df["volume"].values[-1]) if "volume" in df.columns else 0
     vol20      = float(df["volume"].values[-min(20,len(df)):].mean()) if "volume" in df.columns else 0
     prev_close = float(c[-2]) if len(c) >= 2 else float(c[-1])
@@ -256,6 +262,7 @@ def _minervini(df: pd.DataFrame) -> dict:
         "sma150": round(float(sma150), 1), "sma200": round(float(sma200), 1),
         "high52": round(float(high52), 1), "low52":  round(float(low52), 1),
         "ytd_high": round(float(ytd_high), 1),
+        "ytd_high_date": ytd_high_date,
         "vol_ratio": vol_ratio,
         "change_pct": change_pct,
     }
@@ -421,9 +428,10 @@ def _screen_one(code_4: str, bench_closes: list = None) -> dict:
                 "sma150":     result["sma150"],
                 "sma200":     result["sma200"],
                 "conditions": result["conditions"],
-                "ytd_high":   result.get("ytd_high"),
-                "vol_ratio":  result.get("vol_ratio"),
-                "change_pct": result.get("change_pct"),
+                "ytd_high":      result.get("ytd_high"),
+                "ytd_high_date": result.get("ytd_high_date"),
+                "vol_ratio":     result.get("vol_ratio"),
+                "change_pct":    result.get("change_pct"),
                 "rs6w":       rs.get("rs6w"),
                 "rs13w":      rs.get("rs13w"),
                 "rs26w":      rs.get("rs26w"),
@@ -615,9 +623,10 @@ def update():
                 "sma150":     result["sma150"],
                 "sma200":     result["sma200"],
                 "conditions": result["conditions"],
-                "ytd_high":   result.get("ytd_high"),
-                "vol_ratio":  result.get("vol_ratio"),
-                "change_pct": result.get("change_pct"),
+                "ytd_high":      result.get("ytd_high"),
+                "ytd_high_date": result.get("ytd_high_date"),
+                "vol_ratio":     result.get("vol_ratio"),
+                "change_pct":    result.get("change_pct"),
                 "rs6w":       rs.get("rs6w"),
                 "rs13w":      rs.get("rs13w"),
                 "rs26w":      rs.get("rs26w"),
@@ -697,12 +706,13 @@ def _build_result_from_df(code_4: str, df: pd.DataFrame,
         "sma150":     result["sma150"],
         "sma200":     result["sma200"],
         "conditions": result["conditions"],
-        "ytd_high":   result.get("ytd_high"),
-        "vol_ratio":  result.get("vol_ratio"),
-        "change_pct": result.get("change_pct"),
-        "rs6w":       rs.get("rs6w"),
-        "rs13w":      rs.get("rs13w"),
-        "rs26w":      rs.get("rs26w"),
+        "ytd_high":      result.get("ytd_high"),
+        "ytd_high_date": result.get("ytd_high_date"),
+        "vol_ratio":     result.get("vol_ratio"),
+        "change_pct":    result.get("change_pct"),
+        "rs6w":          rs.get("rs6w"),
+        "rs13w":         rs.get("rs13w"),
+        "rs26w":         rs.get("rs26w"),
     }
 
 
