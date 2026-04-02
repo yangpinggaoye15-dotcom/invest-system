@@ -203,6 +203,31 @@ def screen_to_list(screen) -> list:
     return []
 
 
+def _score_num(stock: dict) -> int:
+    """score フィールド（"5/7" 形式 or int or None）→ 0〜7の整数に変換。
+    screen_full_results.json は "n/7" 文字列で保存される。"""
+    v = stock.get('score') or 0
+    if isinstance(v, str) and '/' in v:
+        try:
+            return int(v.split('/')[0])
+        except (ValueError, IndexError):
+            return 0
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _rs26w(stock: dict) -> float:
+    """rs26w フィールドを float で返す（None/missing → 0.0）。
+    JSONキーは 'rs26w'（アンダースコアなし）。"""
+    v = stock.get('rs26w') or stock.get('rs_26w') or 0
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def write_report(name: str, content: str):
     path = REPORT_DIR / f'{name}.md'
     path.write_text(content, encoding='utf-8')
@@ -292,10 +317,10 @@ def run_info_gathering():
     total = len(stocks)
     top = sorted(
         [s for s in stocks if isinstance(s, dict)],
-        key=lambda x: x.get('rs_26w', 0), reverse=True
+        key=_rs26w, reverse=True
     )[:10]
     top_str = '\n'.join(
-        f"  {s.get('code','?')} {s.get('name','')}: RS26w={s.get('rs_26w','?')}, score={s.get('score','?')}"
+        f"  {s.get('code','?')} {s.get('name','')}: RS26w={_rs26w(s):.2f}, score={s.get('score','?')}"
         for s in top
     )
 
@@ -440,8 +465,8 @@ def run_analysis():
     screen = load_json('screen_full_results.json', {})
     stocks = screen_to_list(screen)
     top20 = sorted(
-        [s for s in stocks if isinstance(s, dict) and s.get('score', 0) >= 6],
-        key=lambda x: x.get('rs_26w', 0), reverse=True
+        [s for s in stocks if isinstance(s, dict) and _score_num(s) >= 6],
+        key=_rs26w, reverse=True
     )[:20]
     info_report = read_report('info_gathering')
     top10_names = [f"{s.get('code')} {s.get('name','')}" for s in top20[:10]]
@@ -1042,7 +1067,7 @@ def detect_phase(screen_data: list) -> dict:
 
     # ── 1. RS上位銘柄の割合（ブレイクアウト候補の多さ）
     total = len(screen_data)
-    high_rs = [s for s in screen_data if isinstance(s, dict) and s.get('rs_26w', 0) > 1.5]
+    high_rs = [s for s in screen_data if isinstance(s, dict) and _rs26w(s) > 1.5]
     rs_ratio = len(high_rs) / total if total > 0 else 0
     if rs_ratio >= 0.15:
         score += 2
@@ -1055,7 +1080,7 @@ def detect_phase(screen_data: list) -> dict:
         reasons.append(f'[事実] RS26w>1.5の銘柄が{rs_ratio:.0%}（{len(high_rs)}/{total}銘柄） → 弱気')
 
     # ── 2. スコア7以上（全条件クリア）銘柄の数
-    top_stocks = [s for s in screen_data if isinstance(s, dict) and s.get('score', 0) >= 7]
+    top_stocks = [s for s in screen_data if isinstance(s, dict) and _score_num(s) >= 7]
     if len(top_stocks) >= 10:
         score += 2
         reasons.append(f'[事実] スコア7以上が{len(top_stocks)}銘柄 → 強い候補多数')
@@ -1067,7 +1092,7 @@ def detect_phase(screen_data: list) -> dict:
         reasons.append(f'[事実] スコア7以上が{len(top_stocks)}銘柄 → 候補少なく慎重')
 
     # ── 3. 平均RSスコアの方向性
-    rs_values = [s.get('rs_26w', 0) for s in screen_data if isinstance(s, dict) and s.get('rs_26w')]
+    rs_values = [_rs26w(s) for s in screen_data if isinstance(s, dict) and _rs26w(s)]
     avg_rs = sum(rs_values) / len(rs_values) if rs_values else 0
     if avg_rs > 1.2:
         score += 1
@@ -1097,8 +1122,8 @@ def _make_new_sim(best: dict) -> dict:
     ep = best.get('price', 0) or 0
     stop_pct = 0.08
     target_pct = 0.25
-    rs26w = best.get('rs_26w') or 0  # null/None を 0 に変換
-    score = best.get('score') or 0   # null/None を 0 に変換
+    rs26w = _rs26w(best)               # rs26w / rs_26w 両キー対応・float変換
+    score_n = _score_num(best)         # "5/7" 形式 → 整数
     return {
         'code': str(best.get('code', '')),
         'name': best.get('name', ''),
@@ -1112,11 +1137,11 @@ def _make_new_sim(best: dict) -> dict:
         'current_price': ep,
         'current_pct': 0.0,
         'rs_26w': rs26w,
-        'score': score,
+        'score': score_n,
         'result': None,
         'result_pct': None,
         'direction_match': None,
-        'reason': f"RS26w={rs26w:.2f}, score={score}/7, 上位候補"
+        'reason': f"RS26w={rs26w:.2f}, score={score_n}/7, 上位候補"
     }
 
 
@@ -1228,8 +1253,8 @@ def run_verification():
     new_sim_notes = []
     if IS_MARKET_DAY and len(actives) < MAX_SIM_SLOTS:
         a_rank_stocks = sorted(
-            [s for s in stocks if isinstance(s, dict) and (s.get('score') or 0) >= 6],
-            key=lambda x: x.get('rs_26w') or 0, reverse=True  # null/None を 0 に変換
+            [s for s in stocks if isinstance(s, dict) and _score_num(s) >= 6],
+            key=_rs26w, reverse=True
         )
         # 直近30日のhistory + 現在actives で使用済みコードを除外
         used_codes = {str(h.get('code', '')) for h in history if h.get('start_date', '') >= (
