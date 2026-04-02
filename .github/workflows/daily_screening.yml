@@ -46,15 +46,16 @@ jobs:
           INVEST_BASE_DIR: ${{ github.workspace }}
         run: |
           mkdir -p data csv_output
-          # 月曜 or 手動fresh=true の場合はフル取得、それ以外は差分更新
+          # 月曜 or 手動fresh=true の場合はbulkフル取得、それ以外はbulk差分更新
+          # bulkモード: per-stockモード比で約200分の1のAPIコール数
           DOW=$(date +'%u')  # 1=月曜
           FRESH_INPUT="${{ github.event.inputs.fresh }}"
           if [ "$FRESH_INPUT" = "true" ] || [ "$DOW" = "1" ]; then
-            echo "FRESH MODE（月曜 or 手動指定）"
-            python run_screen_full.py --fresh
+            echo "BULK MODE（月曜 or 手動指定 - 全400日分一括取得）"
+            python run_screen_full.py --bulk
           else
-            echo "UPDATE MODE（差分更新 - 直近5日のみ取得）"
-            python run_screen_full.py --update
+            echo "BULK UPDATE MODE（差分更新 - 直近10日を日付ベースで一括取得）"
+            python run_screen_full.py --bulk-update
           fi
 
       - name: Export chart, pattern, and financial data

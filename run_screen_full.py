@@ -1,13 +1,15 @@
 """
-run_screen_full.py  v2.0
+run_screen_full.py  v2.1
 Claude不要で単独動作するスクリーニングスクリプト
 毎日15時にWindowsタスクスケジューラから自動実行
 
 使い方:
   python run_screen_full.py              # 前回続きから（デフォルト）
-  python run_screen_full.py --fresh      # 最初から全銘柄
+  python run_screen_full.py --fresh      # 最初から全銘柄（per-stockモード）
+  python run_screen_full.py --update     # 差分更新（per-stockモード）
+  python run_screen_full.py --bulk       # 全銘柄一括取得（日付ベースbulkモード・推奨）
+  python run_screen_full.py --bulk-update  # 差分更新（日付ベースbulkモード・推奨）
   python run_screen_full.py --test       # 先頭20銘柄でテスト
-  python run_screen_full.py --no-etf    # ETF除外（デフォルトと同じ）
 """
 
 import os
@@ -144,6 +146,64 @@ def _fetch_daily(code_4: str, days: int = 400) -> list:
                 raise
             time.sleep(RETRY_SLEEP_SEC)
     return []
+
+def _fetch_all_for_date(date_str: str) -> list:
+    """1日の全銘柄OHLCV取得（ページネーション対応・429リトライあり）。
+
+    GET /v2/equities/bars/daily?date=YYYYMMDD （codeなし）で
+    その日の全銘柄データを一括取得する。非営業日は空リストを返す。
+
+    Args:
+        date_str: YYYYMMDD形式の日付文字列
+    Returns:
+        その日の全銘柄のOHLCVリスト（各要素にCode/Date/AdjO…フィールド付き）
+    """
+    base_url = "https://api.jquants.com/v2/equities/bars/daily"
+    all_bars: list = []
+    pagination_key: str | None = None
+
+    while True:  # ページネーションループ
+        params: dict = {"date": date_str}
+        if pagination_key:
+            params["pagination_key"] = pagination_key
+
+        data = None
+        for attempt in range(MAX_RETRIES):
+            try:
+                time.sleep(REQUEST_SLEEP_SEC)
+                resp = requests.get(base_url, headers=_headers(),
+                                    params=params, timeout=30)
+                if resp.status_code == 429:
+                    wait = RETRY_SLEEP_SEC * (attempt + 1)
+                    log.warning(f"bulk {date_str}: 429 "
+                                f"(attempt {attempt+1}/{MAX_RETRIES}), wait {wait}s")
+                    time.sleep(wait)
+                    continue
+                if resp.status_code in (400, 404):
+                    return all_bars  # 非営業日 or 無効な日付
+                resp.raise_for_status()
+                data = resp.json()
+                break
+            except Exception as e:
+                if attempt == MAX_RETRIES - 1:
+                    log.warning(f"bulk {date_str}: failed after {MAX_RETRIES} "
+                                f"attempts: {e}")
+                    return all_bars
+                time.sleep(RETRY_SLEEP_SEC)
+
+        if data is None:
+            break
+
+        # "daily_quotes" (all-stocks endpoint) または "data" (legacy) を取得
+        bars = data.get("daily_quotes", data.get("data", []))
+        all_bars.extend(bars)
+
+        pagination_key = data.get("pagination_key")
+        if not pagination_key:
+            break
+
+    return all_bars
+
 
 def _daily_to_df(bars: list) -> pd.DataFrame:
     df = pd.DataFrame(bars)
@@ -615,6 +675,297 @@ def update():
     log.info(f"結果: {RESULTS_FILE}")
 
 # ---------------------------------------------------------------------------
+# Bulk mode helpers
+# ---------------------------------------------------------------------------
+
+def _build_result_from_df(code_4: str, df: pd.DataFrame,
+                           bench_closes: list) -> dict:
+    """DataFrame → スクリーニング結果dictを構築（run_bulk / update_bulk共通）"""
+    result = _minervini(df)
+    if "error" in result:
+        return {"code": code_4, "error": result["error"]}
+    rs = {} if not bench_closes else _calc_rs(df["close"].tolist(), bench_closes)
+    return {
+        "code":       code_4,
+        "name":       _lookup_name(code_4),
+        "price":      result["price"],
+        "passed":     result["passed"],
+        "score":      result["score"],
+        "high52":     result["high52"],
+        "low52":      result["low52"],
+        "sma50":      result["sma50"],
+        "sma150":     result["sma150"],
+        "sma200":     result["sma200"],
+        "conditions": result["conditions"],
+        "ytd_high":   result.get("ytd_high"),
+        "vol_ratio":  result.get("vol_ratio"),
+        "change_pct": result.get("change_pct"),
+        "rs6w":       rs.get("rs6w"),
+        "rs13w":      rs.get("rs13w"),
+        "rs26w":      rs.get("rs26w"),
+    }
+
+
+def run_bulk():
+    """日付ベース全銘柄一括スクリーニング（--bulkオプション用）。
+
+    通常fresh（per-stock）モード:  ~4070リクエスト、数時間
+    このbulkモード:               ~280-600リクエスト、約15分
+
+    仕組み:
+      GET /v2/equities/bars/daily?date=YYYYMMDD （codeなし）
+      を過去400カレンダー日分ループし全銘柄OHLCVを収集。
+      非営業日はAPIが空を返すのでスキップ。
+    """
+    log.info("=" * 60)
+    log.info("BULK MODE: 日付ベース全銘柄一括取得（~400カレンダー日）")
+
+    LOOKBACK_DAYS = 400  # SMA200計算に必要な営業日数を確保するため余裕を持つ
+    started_at = datetime.now().isoformat()
+
+    # Equity master（ETF除外、有効コード集合を構築）
+    items = fetch_equity_master()
+    items = [i for i in items if not _is_etf(str(i.get("Code", ""))[:4], i)]
+    valid_codes_5 = {str(i["Code"]) for i in items}
+    log.info(f"対象銘柄数: {len(valid_codes_5)}")
+
+    # 過去400カレンダー日のリストを新しい順に生成
+    today = datetime.now()
+    date_list = [
+        (today - timedelta(days=d)).strftime("%Y%m%d")
+        for d in range(LOOKBACK_DAYS, -1, -1)
+    ]
+
+    # 日付ベース一括取得 → stock_bars[code_5] にOHLCVを蓄積
+    stock_bars: dict[str, list] = {}
+    fetched_dates = 0
+    empty_dates   = 0
+
+    for i, date_str in enumerate(date_list):
+        bars = _fetch_all_for_date(date_str)
+
+        if not bars:
+            empty_dates += 1
+            continue
+
+        fetched_dates += 1
+        for bar in bars:
+            code = str(bar.get("Code", ""))
+            if code not in valid_codes_5:
+                continue
+            stock_bars.setdefault(code, []).append(bar)
+
+        if (i + 1) % 50 == 0 or i == len(date_list) - 1:
+            log.info(f"日付進捗: {i+1}/{len(date_list)}  "
+                     f"営業日:{fetched_dates}  空:{empty_dates}  "
+                     f"銘柄数:{len(stock_bars)}")
+
+    log.info(f"取得完了: 営業日 {fetched_dates}日  "
+             f"{len(stock_bars)} 銘柄のデータを収集")
+
+    # 日経225ベンチマーク
+    bench_closes: list = []
+    nikkei_code_5 = NIKKEI225_CODE + "0"
+    if nikkei_code_5 in stock_bars:
+        try:
+            nikkei_bars = sorted(stock_bars[nikkei_code_5],
+                                 key=lambda b: b.get("Date", ""))
+            bench_df = _daily_to_df(nikkei_bars)
+            bench_closes = bench_df["close"].tolist()
+            log.info(f"Nikkei225 bench: {len(bench_closes)} days")
+        except Exception as e:
+            log.warning(f"Nikkei225 bench from bulk data failed: {e}")
+    if not bench_closes:
+        try:
+            bench_closes = _daily_to_df(_fetch_daily(NIKKEI225_CODE))["close"].tolist()
+            log.info(f"Nikkei225 bench (fallback): {len(bench_closes)} days")
+        except Exception as e:
+            log.warning(f"Nikkei225 bench fallback failed: {e}")
+
+    # per-stock処理（Minervini + RS + CSV保存）
+    results: dict = {}
+    passed = errors = 0
+
+    for j, (code_5, bars) in enumerate(stock_bars.items()):
+        code_4 = code_5[:-1]  # "13210" → "1321"
+        try:
+            bars_sorted = sorted(bars, key=lambda b: b.get("Date", ""))
+            df = _daily_to_df(bars_sorted)
+
+            # CSVに保存（以降の update_bulk で利用）
+            csv_path = CSV_DIR / f"{code_4}_daily.csv"
+            df.reset_index().to_csv(csv_path, index=False)
+
+            _save_daily_db(code_4, df)
+            res = _build_result_from_df(code_4, df, bench_closes)
+            results[code_4] = res
+
+            if res.get("error"):
+                errors += 1
+            elif res.get("passed"):
+                passed += 1
+
+        except Exception as e:
+            results[code_4] = {"code": code_4, "error": str(e)}
+            errors += 1
+
+        if (j + 1) % 500 == 0:
+            _save_results(results)
+            log.info(f"処理進捗: {j+1}/{len(stock_bars)}  "
+                     f"PASS:{passed}  ERR:{errors}")
+
+    # 完了メタデータ
+    finished_at = datetime.now().isoformat()
+    elapsed_min = round(
+        (datetime.now() - datetime.fromisoformat(started_at)).total_seconds() / 60, 1
+    )
+    pass_count = sum(1 for k, v in results.items()
+                     if k != "__meta__" and v.get("passed"))
+    results["__meta__"] = {
+        "started_at":    started_at,
+        "finished_at":   finished_at,
+        "elapsed_min":   elapsed_min,
+        "total":         len(stock_bars),
+        "passed":        pass_count,
+        "errors":        errors,
+        "mode":          "bulk",
+        "fetched_dates": fetched_dates,
+    }
+    _save_results(results)
+
+    log.info("=" * 60)
+    log.info(f"BULK完了! {len(stock_bars)}銘柄  PASS:{pass_count}  ERR:{errors}  "
+             f"所要:{elapsed_min}分")
+    log.info(f"結果: {RESULTS_FILE}")
+
+
+def update_bulk():
+    """日付ベース差分更新（--bulk-updateオプション用）。
+
+    直近10カレンダー日を一括取得し既存CSVに追記して再スコアリング。
+    APIコール数: ~20回（通常updateの4070回と比べて約200分の1）。
+    """
+    log.info("=" * 60)
+    log.info("BULK UPDATE MODE: 日付ベース差分更新（直近10日）")
+
+    UPDATE_DAYS = 10  # 週明けも確実にカバー
+    started_at  = datetime.now().isoformat()
+
+    # Equity master
+    items = fetch_equity_master()
+    items = [i for i in items if not _is_etf(str(i.get("Code", ""))[:4], i)]
+    valid_codes_5 = {str(i["Code"]) for i in items}
+    total = len(valid_codes_5)
+    log.info(f"対象銘柄数: {total}")
+
+    # 直近10日の日付リスト
+    today = datetime.now()
+    date_list = [
+        (today - timedelta(days=d)).strftime("%Y%m%d")
+        for d in range(UPDATE_DAYS, -1, -1)
+    ]
+
+    # 一括取得 → code別に振り分け
+    new_bars_by_code: dict[str, list] = {}
+    for date_str in date_list:
+        bars = _fetch_all_for_date(date_str)
+        if not bars:
+            continue
+        for bar in bars:
+            code = str(bar.get("Code", ""))
+            if code not in valid_codes_5:
+                continue
+            new_bars_by_code.setdefault(code, []).append(bar)
+
+    log.info(f"新規データ取得完了: {len(new_bars_by_code)} 銘柄 "
+             f"({len(date_list)} 日分)")
+
+    # 日経225ベンチマーク（CSVマージ後に構築）
+    bench_closes: list = []
+    nikkei_code_5 = NIKKEI225_CODE + "0"
+    try:
+        bench_csv = CSV_DIR / f"{NIKKEI225_CODE}_daily.csv"
+        nikkei_new = new_bars_by_code.get(nikkei_code_5, [])
+        if nikkei_new and bench_csv.exists():
+            existing = pd.read_csv(bench_csv, parse_dates=["date"]).set_index("date")
+            new_df   = _daily_to_df(sorted(nikkei_new, key=lambda b: b.get("Date", "")))
+            merged   = pd.concat([existing, new_df])
+            merged   = merged[~merged.index.duplicated(keep="last")].sort_index()
+            merged.reset_index().to_csv(bench_csv, index=False)
+            bench_closes = merged["close"].tolist()
+        elif bench_csv.exists():
+            bench_closes = (pd.read_csv(bench_csv, parse_dates=["date"])
+                            .set_index("date")["close"].tolist())
+        log.info(f"Nikkei225 bench: {len(bench_closes)} days")
+    except Exception as e:
+        log.warning(f"Nikkei225 bench failed: {e}")
+
+    # 既存スクリーニング結果ロード
+    results    = _load_results()
+    errors = passed = batch_count = 0
+
+    for code_5, new_bars in new_bars_by_code.items():
+        code_4 = code_5[:-1]
+        try:
+            csv_path = CSV_DIR / f"{code_4}_daily.csv"
+            new_df   = _daily_to_df(sorted(new_bars, key=lambda b: b.get("Date", "")))
+
+            if csv_path.exists():
+                existing = pd.read_csv(csv_path, parse_dates=["date"]).set_index("date")
+                merged   = pd.concat([existing, new_df])
+                merged   = merged[~merged.index.duplicated(keep="last")].sort_index()
+                merged.reset_index().to_csv(csv_path, index=False)
+                df = merged
+            else:
+                # CSVなし → per-stockでフル取得してベースを作る
+                full_bars = _fetch_daily(code_4, days=400)
+                df = _daily_to_df(full_bars) if full_bars else new_df
+                df.reset_index().to_csv(csv_path, index=False)
+
+            _save_daily_db(code_4, df)
+            res = _build_result_from_df(code_4, df, bench_closes)
+            results[code_4] = res
+
+            if res.get("error"):
+                errors += 1
+            elif res.get("passed"):
+                passed += 1
+
+        except Exception as e:
+            results[code_4] = {"code": code_4, "error": str(e)}
+            errors += 1
+
+        batch_count += 1
+        if batch_count % BATCH_SIZE == 0:
+            _save_results(results)
+            log.info(f"Progress: {batch_count}/{total}  "
+                     f"PASS:{passed}  ERR:{errors}")
+
+    # 完了メタデータ
+    finished_at = datetime.now().isoformat()
+    elapsed_min = round(
+        (datetime.now() - datetime.fromisoformat(started_at)).total_seconds() / 60, 1
+    )
+    pass_count = sum(1 for k, v in results.items()
+                     if k != "__meta__" and v.get("passed"))
+    results["__meta__"] = {
+        "started_at":  started_at,
+        "finished_at": finished_at,
+        "elapsed_min": elapsed_min,
+        "total":       total,
+        "passed":      pass_count,
+        "errors":      errors,
+        "mode":        "bulk_update",
+    }
+    _save_results(results)
+
+    log.info("=" * 60)
+    log.info(f"BULK UPDATE完了! {batch_count}銘柄更新  "
+             f"PASS:{pass_count}  ERR:{errors}  所要:{elapsed_min}分")
+    log.info(f"結果: {RESULTS_FILE}")
+
+
+# ---------------------------------------------------------------------------
 # Index data export (Nikkei225 + US indices via yfinance)
 # ---------------------------------------------------------------------------
 
@@ -704,11 +1055,17 @@ if __name__ == "__main__":
     if "--test" in args:
         log.info("TEST MODE: 先頭20銘柄")
         run(resume=False, max_stocks=20)
+    elif "--bulk-update" in args:
+        log.info("BULK UPDATE MODE: 日付ベース差分更新")
+        update_bulk()
+    elif "--bulk" in args:
+        log.info("BULK MODE: 日付ベース全銘柄一括取得")
+        run_bulk()
     elif "--fresh" in args:
-        log.info("FRESH MODE: 全銘柄・最初から")
+        log.info("FRESH MODE: 全銘柄・最初から（per-stockモード）")
         run(resume=False)
     elif "--update" in args:
-        log.info("UPDATE MODE: 差分更新")
+        log.info("UPDATE MODE: 差分更新（per-stockモード）")
         update()
     else:
         # デフォルト: 前回続きから

@@ -111,6 +111,7 @@
 10. **`score`・`rs_26w` が null の銘柄に対し `or 0` でフォールバックすること** → Python の None との比較/フォーマットでTypeError発生を防ぐ
 11. **`screen_full_results.json` はdict形式（コードをキー）** → `isinstance(screen, list)` では常に空になる。`screen_to_list()` を使うこと
 12. **`run_screen_full.py` の PARALLEL_WORKERS は3以下にすること** → 15だとJ-Quants 429エラーで98.9%失敗する
+13. **スクリーニングは `--bulk` / `--bulk-update` モードを推奨** → per-stockモードの約200分の1のAPIコール数。`daily_screening.yml` はbulkモードを使用中
 
 ---
 
@@ -119,6 +120,11 @@
 # GitHub Actions手動実行
 Actions → Daily Stock Screening → Run workflow
 Actions → Daily Investment Teams → Run workflow
+
+# ローカルでbulkモードのテスト（環境変数を設定してから）
+python run_screen_full.py --bulk         # 全銘柄（~15分）
+python run_screen_full.py --bulk-update  # 差分更新（~1分）
+python run_screen_full.py --test         # 先頭20銘柄（動作確認用）
 
 # サイト確認
 https://invest-system-six.vercel.app/ を Ctrl+Shift+R で強制リロード
