@@ -40,11 +40,11 @@ LOG_FILE      = BASE_DIR / "data" / "screen_full.log"
 
 MASTER_CACHE_TTL_DAYS = 7
 BATCH_SIZE        = 50
-BATCH_SLEEP_SEC   = 0.5
-REQUEST_SLEEP_SEC = 0.1
+BATCH_SLEEP_SEC   = 2.0   # バッチ間スリープ延長（429対策）
+REQUEST_SLEEP_SEC = 0.5   # 0.1→0.5: ワーカーあたりのスリープ延長
 MAX_RETRIES       = 3
-RETRY_SLEEP_SEC   = 10.0
-PARALLEL_WORKERS  = 15
+RETRY_SLEEP_SEC   = 60.0  # 429リトライ時は60秒待機（10→60）
+PARALLEL_WORKERS  = 3     # 15→3: 150req/s → ~6req/s に削減（J-Quants 429対策）
 
 NIKKEI225_CODE    = "1321"
 ETF_CODE_PREFIXES = ("13", "14", "15", "16", "17", "18", "19")

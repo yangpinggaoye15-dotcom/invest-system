@@ -192,6 +192,17 @@ def read_report(name: str) -> str:
     return path.read_text(encoding='utf-8') if path.exists() else '（未生成）'
 
 
+def screen_to_list(screen) -> list:
+    """screen_full_results.json はdict形式（コードをキー）またはlist形式。
+    どちらでもエラー銘柄を除いたリストに変換する。"""
+    if isinstance(screen, list):
+        return [s for s in screen if isinstance(s, dict) and not s.get('error')]
+    elif isinstance(screen, dict):
+        return [v for v in screen.values()
+                if isinstance(v, dict) and 'code' in v and not v.get('error')]
+    return []
+
+
 def write_report(name: str, content: str):
     path = REPORT_DIR / f'{name}.md'
     path.write_text(content, encoding='utf-8')
@@ -276,8 +287,8 @@ def get_feedback_prefix(team_key: str) -> str:
 
 # ─── Team 1: 情報収集 ────────────────────────────────────────────
 def run_info_gathering():
-    screen = load_json('screen_full_results.json', [])
-    stocks = screen if isinstance(screen, list) else []
+    screen = load_json('screen_full_results.json', {})
+    stocks = screen_to_list(screen)
     total = len(stocks)
     top = sorted(
         [s for s in stocks if isinstance(s, dict)],
@@ -426,8 +437,8 @@ def run_info_gathering():
 
 # ─── Team 2: 分析 ────────────────────────────────────────────────
 def run_analysis():
-    screen = load_json('screen_full_results.json', [])
-    stocks = screen if isinstance(screen, list) else []
+    screen = load_json('screen_full_results.json', {})
+    stocks = screen_to_list(screen)
     top20 = sorted(
         [s for s in stocks if isinstance(s, dict) and s.get('score', 0) >= 6],
         key=lambda x: x.get('rs_26w', 0), reverse=True
@@ -743,8 +754,8 @@ def run_strategy():
     strategy_feedback = get_feedback_prefix('strategy')
 
     # ルールベースのフェーズ事前判定（AIへの参考情報として渡す）
-    screen = load_json('screen_full_results.json', [])
-    auto_phase = detect_phase(screen if isinstance(screen, list) else [])
+    screen = load_json('screen_full_results.json', {})
+    auto_phase = detect_phase(screen_to_list(screen))
     auto_phase_str = (
         f"ルールベース判定: {auto_phase['phase']} (スコア: {auto_phase['score']})\n"
         + '\n'.join(f"  - {r}" for r in auto_phase['reasons'])
@@ -1128,8 +1139,8 @@ def run_verification():
         except Exception:
             pass
 
-    screen = load_json('screen_full_results.json', [])
-    stocks = screen if isinstance(screen, list) else []
+    screen = load_json('screen_full_results.json', {})
+    stocks = screen_to_list(screen)
     stocks_by_code = {str(s.get('code', '')): s for s in stocks if isinstance(s, dict)}
 
     analysis_report = read_report('analysis')
