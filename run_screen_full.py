@@ -41,10 +41,10 @@ LOG_FILE      = BASE_DIR / "data" / "screen_full.log"
 MASTER_CACHE_TTL_DAYS = 7
 BATCH_SIZE        = 50
 BATCH_SLEEP_SEC   = 2.0   # バッチ間スリープ延長（429対策）
-REQUEST_SLEEP_SEC = 0.5   # 0.1→0.5: ワーカーあたりのスリープ延長
+REQUEST_SLEEP_SEC = 1.0   # ワーカーあたり1秒スリープ
 MAX_RETRIES       = 3
-RETRY_SLEEP_SEC   = 60.0  # 429リトライ時は60秒待機（10→60）
-PARALLEL_WORKERS  = 3     # 15→3: 150req/s → ~6req/s に削減（J-Quants 429対策）
+RETRY_SLEEP_SEC   = 60.0  # 429リトライ時は60秒待機
+PARALLEL_WORKERS  = 1     # 1ワーカー=1req/s（J-Quants APIレート制限対策）
 
 NIKKEI225_CODE    = "1321"
 ETF_CODE_PREFIXES = ("13", "14", "15", "16", "17", "18", "19")
@@ -122,15 +122,28 @@ def _headers():
 # ---------------------------------------------------------------------------
 
 def _fetch_daily(code_4: str, days: int = 400) -> list:
-    """Fetch daily bars. days=1 for today only (update mode)."""
+    """Fetch daily bars with 429 retry（update/fresh両モード共通）."""
     code_5    = code_4 + "0"
     date_from = (datetime.now() - timedelta(days=days)).strftime("%Y%m%d")
     date_to   = datetime.now().strftime("%Y%m%d")
     url  = (f"https://api.jquants.com/v2/equities/bars/daily"
             f"?code={code_5}&from={date_from}&to={date_to}")
-    resp = requests.get(url, headers=_headers(), timeout=30)
-    resp.raise_for_status()
-    return resp.json().get("data", [])
+    for attempt in range(MAX_RETRIES):
+        time.sleep(REQUEST_SLEEP_SEC)
+        try:
+            resp = requests.get(url, headers=_headers(), timeout=30)
+            if resp.status_code == 429:
+                wait = RETRY_SLEEP_SEC * (attempt + 1)
+                log.warning(f"{code_4}: 429 rate limit (attempt {attempt+1}/{MAX_RETRIES}), wait {wait}s")
+                time.sleep(wait)
+                continue
+            resp.raise_for_status()
+            return resp.json().get("data", [])
+        except Exception as e:
+            if attempt == MAX_RETRIES - 1:
+                raise
+            time.sleep(RETRY_SLEEP_SEC)
+    return []
 
 def _daily_to_df(bars: list) -> pd.DataFrame:
     df = pd.DataFrame(bars)
