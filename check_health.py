@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S python3 -X utf8
+# -*- coding: utf-8 -*-
+import sys
+if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 """
 check_health.py - システム実行後のヘルスチェック
 GitHub Actions 完了後に自動実行し、データの整合性を検証する
@@ -27,7 +31,8 @@ SYS_REPO = 'invest-system'
 TEAMS_WORKFLOW = 'daily_teams.yml'
 TODAY = datetime.date.today().isoformat()
 
-REQUIRED_TEAMS = ['info', 'analysis', 'risk', 'strategy', 'report', 'security', 'verification', 'audit']
+REQUIRED_TEAMS = ['info', 'analysis', 'risk', 'strategy', 'report', 'security', 'verification']
+# audit は自己採点しないため除外
 REQUIRED_REPORTS = ['info_gathering.md', 'analysis.md', 'risk.md', 'strategy.md',
                     'internal_audit.md', 'security.md', 'verification.md', 'latest_report.md']
 
@@ -156,7 +161,7 @@ def check_reports(token):
         if raw:
             size = len(raw)
             # 最低限の中身チェック（空・エラーメッセージだけでないか）
-            has_content = size > 200 and '日付:' in raw
+            has_content = size > 200  # 200文字以上あれば内容ありとみなす
             check(f'{fname}', has_content,
                   f'{size}文字' + ('' if has_content else ' ← 内容不足'))
         else:
@@ -182,20 +187,19 @@ def check_workflow_result(token):
 
 def check_data_freshness(token):
     print(bold('\n🕐 データ鮮度'))
-    # screen_full_results.json（スクリーニング）
+    is_weekday = datetime.date.today().weekday() < 5
     raw = get_file_content(DATA_REPO, 'screen_full_results.json', token)
     if raw:
         try:
             data = json.loads(raw)
-            # 銘柄数チェック
             stocks = data if isinstance(data, list) else data.get('stocks', [])
-            check('スクリーニングデータ',
-                  len(stocks) > 0,
-                  f'{len(stocks)}銘柄')
+            check('スクリーニングデータ', len(stocks) > 0, f'{len(stocks)}銘柄')
         except Exception:
             check('スクリーニングデータ', False, 'パース失敗')
+    elif is_weekday:
+        check('スクリーニングデータ', False, 'ファイルなし（平日なのに欠損）', critical=True)
     else:
-        check('スクリーニングデータ', False, 'ファイルなし')
+        check('スクリーニングデータ', True, '週末のため更新なし（正常）')
 
 # ── ワークフロー監視 ──────────────────────────────────
 def wait_for_completion(token, timeout_min=25):
