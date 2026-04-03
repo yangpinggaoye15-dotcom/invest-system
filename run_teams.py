@@ -259,11 +259,14 @@ def save_kpi_log(kpi_results: dict):
     """KPI達成状況を kpi_log.json に追記（日次トレンド分析用）"""
     log_path = REPORT_DIR / 'kpi_log.json'
     existing = []
-    if log_path.exists():
-        try:
-            existing = json.loads(log_path.read_text(encoding='utf-8'))
-        except Exception:
-            pass
+    # ローカルになければinvest-dataから読む（GitHub Actions環境対応）
+    for _candidate in [log_path, DATA_DIR / 'reports' / 'kpi_log.json']:
+        if _candidate.exists():
+            try:
+                existing = json.loads(_candidate.read_text(encoding='utf-8'))
+                break
+            except Exception:
+                pass
     # 当日分を上書き or 追加
     existing = [e for e in existing if e.get('date') != TODAY]
     existing.append({'date': TODAY, 'teams': kpi_results})
@@ -1197,16 +1200,19 @@ def run_verification():
     """
     sim_log_path = REPORT_DIR / 'simulation_log.json'
     log = {'tracking_rule': '2週間(10営業日)追跡・最大3銘柄同時', 'actives': [], 'history': []}
-    if sim_log_path.exists():
-        try:
-            raw = json.loads(sim_log_path.read_text(encoding='utf-8'))
-            # 旧フォーマット（active単体）からの移行
-            if 'active' in raw and 'actives' not in raw:
-                old = raw.pop('active')
-                raw['actives'] = [old] if old else []
-            log = raw
-        except Exception:
-            pass
+    # ローカルになければinvest-dataから読む（GitHub Actions環境対応）
+    for _candidate in [sim_log_path, DATA_DIR / 'reports' / 'simulation_log.json']:
+        if _candidate.exists():
+            try:
+                raw = json.loads(_candidate.read_text(encoding='utf-8'))
+                # 旧フォーマット（active単体）からの移行
+                if 'active' in raw and 'actives' not in raw:
+                    old = raw.pop('active')
+                    raw['actives'] = [old] if old else []
+                log = raw
+                break
+            except Exception:
+                pass
 
     screen = load_json('screen_full_results.json', {})
     stocks = screen_to_list(screen)
