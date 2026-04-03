@@ -1685,9 +1685,14 @@ def run_internal_audit():
     # KPIログ: チーム別スコアをJSONで保存（トレンド分析用）
     # index.html は英語キー・数値（10点満点）を期待するため変換する
     _TEAM_KEY_MAP = {
-        '情報収集': 'info', '分析': 'analysis', 'リスク管理': 'risk',
-        '投資戦略': 'strategy', '統括': 'report', 'セキュリティ': 'security',
-        '検証': 'verification', '内部監査': 'audit',
+        '情報収集': 'info',
+        '分析': 'analysis', '銘柄選定・仮説': 'analysis',  # 両表記に対応
+        'リスク管理': 'risk',
+        '投資戦略': 'strategy',
+        '統括': 'report', 'レポート統括': 'report',         # 両表記に対応
+        'セキュリティ': 'security',
+        '検証': 'verification', 'シミュレーション追跡': 'verification',  # 両表記に対応
+        '内部監査': 'audit',
     }
     def _parse_score(s):
         """'4/5' → 8.0（10点換算）、数値文字列 → float、その他 → None"""
