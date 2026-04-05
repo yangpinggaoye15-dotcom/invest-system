@@ -1013,6 +1013,161 @@ def bulk_download_status() -> str:
     return f"Status: {s['status']}"
 
 
+# ---------------------------------------------------------------------------
+# 財務データ一括ダウンロード
+# ---------------------------------------------------------------------------
+
+_fins_lock  = threading.Lock()
+_fins_state = {"running": False, "done": 0, "total": 0, "status": "idle",
+               "saved": 0, "started_at": None, "error": ""}
+
+FINS_DB_PATH = BASE_DIR / "data" / "fins_data.db"
+
+def _init_fins_db():
+    with sqlite3.connect(FINS_DB_PATH) as con:
+        con.execute("""
+            CREATE TABLE IF NOT EXISTS fins (
+                code TEXT,
+                fy TEXT,
+                period TEXT,
+                date TEXT,
+                sales REAL,
+                op REAL,
+                np REAL,
+                eps REAL,
+                bps REAL,
+                div REAL,
+                equity_ratio REAL,
+                forecast_sales REAL,
+                forecast_np REAL,
+                forecast_eps REAL,
+                PRIMARY KEY (code, fy, period)
+            )
+        """)
+        con.commit()
+
+def _save_fins_db(code_4: str, records: list):
+    if not records:
+        return
+    rows = []
+    for r in records:
+        rows.append((
+            code_4, r.get("fy"), r.get("period"), r.get("date"),
+            r.get("sales"), r.get("op"), r.get("np"),
+            r.get("eps"), r.get("bps"), r.get("div"),
+            r.get("equity_ratio"), r.get("forecast_sales"),
+            r.get("forecast_np"), r.get("forecast_eps"),
+        ))
+    with sqlite3.connect(FINS_DB_PATH) as con:
+        con.executemany("""
+            INSERT OR REPLACE INTO fins VALUES
+            (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        """, rows)
+        con.commit()
+
+def _download_one_fins(code_4: str) -> tuple:
+    """1銘柄の財務データを取得してDBに保存。(code, ok) を返す"""
+    for attempt in range(MAX_RETRIES):
+        try:
+            time.sleep(REQUEST_SLEEP_SEC)
+            records = _fetch_fins_history(code_4)
+            if not records:
+                return (code_4, False)
+            _save_fins_db(code_4, records)
+            return (code_4, True)
+        except Exception as e:
+            err = str(e)
+            if "429" in err or "rate" in err.lower():
+                time.sleep(RETRY_SLEEP_SEC * (attempt + 1))
+            elif attempt == MAX_RETRIES - 1:
+                return (code_4, False)
+            else:
+                time.sleep(RETRY_SLEEP_SEC)
+    return (code_4, False)
+
+def _run_bulk_fins(workers: int, exclude_etf: bool):
+    global _fins_state
+    _init_fins_db()
+    try:
+        master = fetch_equity_master()
+    except Exception as e:
+        with _fins_lock:
+            _fins_state.update({"running": False, "status": "error", "error": str(e)})
+        return
+    ETF_PREFIXES = ("13", "14", "15", "16", "17", "18", "19")
+    codes = []
+    for item in master:
+        code = str(item.get("Code", ""))
+        if not code:
+            continue
+        if exclude_etf and code[:2] in ETF_PREFIXES:
+            continue
+        codes.append(code[:4])
+    codes = list(dict.fromkeys(codes))
+
+    with _fins_lock:
+        _fins_state.update({"running": True, "done": 0, "total": len(codes),
+                            "status": "downloading", "saved": 0, "error": "",
+                            "started_at": datetime.now().isoformat()})
+
+    saved = 0
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {executor.submit(_download_one_fins, c): c for c in codes}
+        for future in as_completed(futures):
+            with _fins_lock:
+                if not _fins_state["running"]:
+                    executor.shutdown(wait=False)
+                    break
+            _, ok = future.result()
+            if ok:
+                saved += 1
+            with _fins_lock:
+                _fins_state["done"] += 1
+                _fins_state["saved"] = saved
+    with _fins_lock:
+        _fins_state.update({"running": False, "status": "done", "saved": saved})
+
+
+@mcp.tool()
+def bulk_download_fins(workers: int = 5, exclude_etf: bool = True) -> str:
+    """
+    全銘柄の財務データ（売上/営業利益/EPS/BPS等）をV2 API × 並列でダウンロード。
+    データは data/fins_data.db に保存される。
+    workers: 並列数（デフォルト5）
+    bulk_fins_status() で進捗確認。
+    """
+    with _fins_lock:
+        if _fins_state["running"]:
+            return "既に実行中です。bulk_fins_status() で進捗確認してください。"
+    t = threading.Thread(target=_run_bulk_fins, args=(workers, exclude_etf), daemon=True)
+    t.start()
+    return (f"財務データ一括ダウンロード開始: {workers}並列 × 全銘柄\n"
+            f"データ保存先: data/fins_data.db\n"
+            f"bulk_fins_status() で進捗確認")
+
+
+@mcp.tool()
+def bulk_fins_status() -> str:
+    """Check progress of bulk_download_fins job."""
+    with _fins_lock:
+        s = dict(_fins_state)
+    if s["status"] == "idle":
+        return "未実行。bulk_download_fins() を呼んでください。"
+    done, total = s["done"], s["total"]
+    pct = round(done / total * 100, 1) if total else 0
+    if s["status"] == "downloading":
+        elapsed = (datetime.now() - datetime.fromisoformat(s["started_at"])).total_seconds()
+        remaining = round((elapsed / done * (total - done)) / 60, 1) if done > 0 else "?"
+        return (f"Status  : ダウンロード中\n"
+                f"Progress: {done}/{total}銘柄 ({pct}%)\n"
+                f"残り    : 約{remaining}分")
+    if s["status"] == "done":
+        return (f"Status  : 完了\n"
+                f"保存銘柄: {s['saved']}銘柄\n"
+                f"保存先  : data/fins_data.db")
+    return f"Status: {s['status']}"
+
+
 @mcp.tool()
 def screen_full_status() -> str:
     """Check progress of a running or completed screen_full job."""
