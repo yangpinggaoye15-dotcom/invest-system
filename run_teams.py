@@ -1380,6 +1380,8 @@ def run_verification():
                 break
             except Exception:
                 pass
+    # 常に最新のtracking_ruleに更新（旧JSONから読み込んだ場合でも上書き）
+    log['tracking_rule'] = '1ヶ月(20営業日)追跡・最大5銘柄同時・3シナリオ'
 
     screen = load_json('screen_full_results.json', {})
     stocks = screen_to_list(screen)
@@ -1434,6 +1436,7 @@ def run_verification():
             daily_entry['cause'] = analysis.get('cause', '')
             daily_entry['hypothesis_revision'] = analysis.get('hypothesis_revision', '修正なし')
             daily_entry['updated_probabilities'] = analysis.get('updated_probabilities', {sid: scenarios[sid].get('probability', 33) for sid in scenarios})
+            daily_entry['prev_match'] = analysis.get('prev_match')  # 前日仮説的中フラグ（True/False/None）
 
             # シナリオ確率を更新
             updated_probs = analysis.get('updated_probabilities', {})
@@ -1568,14 +1571,18 @@ def run_verification():
     print(f'  [Gemini] 検証情報収集中... ({DAY_LABEL})')
     active_names = ', '.join(a['name'] for a in actives) if actives else 'なし'
     hyp_check_str = '\n'.join(hypothesis_checks) if hypothesis_checks else 'なし（週末または仮説未設定）'
-    # v2: 仮説精度計算 — daily_log の prev_match を集計
+    # v2: 仮説精度計算 — daily_log.prev_match 優先、旧hypothesis_historyにフォールバック
     all_daily = [d for a in (actives + history) for d in a.get('daily_log', [])]
-    hyp_total = sum(1 for d in all_daily if d.get('updated_probabilities'))
-    # 前日仮説的中は hypothesis_history（旧フォーマット互換）
-    all_hyp_old = [h for a in (actives + history) for h in a.get('hypothesis_history', [])]
-    hyp_hits = sum(1 for h in all_hyp_old if h.get('match'))
-    hyp_accuracy = hyp_hits / len(all_hyp_old) * 100 if all_hyp_old else 0
-    sim_summary = f"追跡中({len(actives)}件): {active_names} / 累計{len(completed)}件完了 / 勝率{win_rate:.0f}% / 日次ログ{len(all_daily)}件"
+    dlog_with_match = [d for d in all_daily if d.get('prev_match') is not None]
+    if dlog_with_match:
+        hyp_hits = sum(1 for d in dlog_with_match if d.get('prev_match') is True)
+        hyp_accuracy = hyp_hits / len(dlog_with_match) * 100
+    else:
+        # 旧フォーマット後方互換
+        all_hyp_old = [h for a in (actives + history) for h in a.get('hypothesis_history', [])]
+        hyp_hits = sum(1 for h in all_hyp_old if h.get('match'))
+        hyp_accuracy = hyp_hits / len(all_hyp_old) * 100 if all_hyp_old else 0
+    sim_summary = f"追跡中({len(actives)}件): {active_names} / 累計{len(completed)}件完了 / 勝率{win_rate:.0f}% / 日次ログ{len(all_daily)}件 / 仮説的中率{hyp_accuracy:.0f}%({len(dlog_with_match) if dlog_with_match else 0}件)"
     g_prompt = f"""投資シミュレーションの精度向上に役立つ情報を収集してください。
 
 現在の状況: {sim_summary}
