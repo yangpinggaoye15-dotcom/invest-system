@@ -1066,15 +1066,44 @@ def _save_fins_db(code_4: str, records: list):
         con.commit()
 
 def _download_one_fins(code_4: str) -> tuple:
-    """1銘柄の財務データを取得してDBに保存。(code, ok) を返す"""
+    """1銘柄の財務データを取得してDBに保存。(code, ok) を返す
+    _fetch_fins_historyは例外を飲み込むため直接HTTPリクエストしてリトライ"""
+    code_5 = code_4 + "0"
+    url = f"https://api.jquants.com/v2/fins/summary?code={code_5}"
     for attempt in range(MAX_RETRIES):
         try:
             time.sleep(REQUEST_SLEEP_SEC)
-            records = _fetch_fins_history(code_4)
-            if not records:
-                return (code_4, False)
-            _save_fins_db(code_4, records)
-            return (code_4, True)
+            resp = requests.get(url, headers=_headers(), timeout=30)
+            resp.raise_for_status()  # 429はここで例外になる
+            items = resp.json().get("data", [])
+            if not items:
+                return (code_4, False)  # 財務データなし（正常な空）
+            # _fetch_fins_historyと同じ変換ロジック
+            def _num(v):
+                if v is None or v == "": return None
+                try: return float(v)
+                except: return None
+            records = []
+            for item in items:
+                fy_end   = item.get("CurFYEn", "")
+                per_type = item.get("CurPerType", "")
+                if not fy_end or not per_type:
+                    continue
+                records.append({
+                    "fy": fy_end[:7], "period": per_type,
+                    "date": item.get("DiscDate", ""),
+                    "sales": _num(item.get("Sales")), "op": _num(item.get("OP")),
+                    "np": _num(item.get("NP")), "eps": _num(item.get("EPS")),
+                    "bps": _num(item.get("BPS")), "div": _num(item.get("DivAnn")),
+                    "equity_ratio":   _num(item.get("EqAR")),
+                    "forecast_sales": _num(item.get("FSales")),
+                    "forecast_np":    _num(item.get("FNP")),
+                    "forecast_eps":   _num(item.get("FEPS")),
+                })
+            if records:
+                _save_fins_db(code_4, records)
+                return (code_4, True)
+            return (code_4, False)
         except Exception as e:
             err = str(e)
             if "429" in err or "rate" in err.lower():
