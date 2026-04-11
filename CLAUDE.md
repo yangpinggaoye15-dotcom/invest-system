@@ -28,13 +28,43 @@
                           ↓
      [GitHub Actions 15:05 JST] daily_screening.yml → invest-data repo (public)
      [GitHub Actions 16:35 JST] daily_teams.yml
-       └── run_teams.py (Team1〜9)
-             ├── Gemini API — リアルタイム情報収集
-             ├── Claude API (claude-sonnet-4-6) — 分析・レポート生成
-             └── reports/daily/*.md + kpi_log.json → invest-data/reports/
+       └── run_teams.py (Team1〜9) ← v2: マルチエージェントアーキテクチャ
+             │
+             ├── _run_agent_team() ─ エージェントループ（Claude API Tool Use）
+             │     ├── search_market_info → Gemini Google Search
+             │     ├── get_screening_data → screen_full_results.json
+             │     ├── get_fins_data → fins_data.json
+             │     ├── read_past_report → 他チームレポート参照
+             │     ├── get_simulation_status → simulation_log.json
+             │     ├── get_kpi_history → kpi_log.json
+             │     ├── read_knowledge / write_knowledge → knowledge/ フォルダ
+             │     └── finalize_report → レポート確定・保存
+             │
+             ├── Claude API (claude-sonnet-4-6) — ツール呼び出し + 分析
+             ├── Gemini API — Google Search grounding（search_market_infoツール経由）
+             └── reports/daily/*.md + knowledge/*.md → invest-data/reports/
                           ↓
               index.html (Vercel) ← raw.githubusercontent.com
 ```
+
+### エージェントアーキテクチャの特徴
+- **自律的ツール選択**: 各チームエージェントが必要なデータを自律的に決定・取得
+- **知識蓄積ループ**: `knowledge/` フォルダに過去の洞察を保存 → 次回実行時に参照して継続学習
+- **非決定論的実行**: 毎回Claudeが最適なツール呼び出し順序を自律判断
+- **継続的改善**: read_knowledge → 分析 → write_knowledge のサイクルで精度向上
+
+### knowledge/ フォルダ（自律学習DB）
+| ファイル | 用途 |
+|---------|------|
+| `info_patterns.md` | 情報収集チームの発見・収集パターン |
+| `analysis_patterns.md` | 分析チームの有効パターン・的中傾向 |
+| `risk_patterns.md` | リスク管理チームの発見 |
+| `strategy_patterns.md` | フェーズ判定精度・有効戦略 |
+| `report_patterns.md` | 統合レポートの改善点 |
+| `security_patterns.md` | セキュリティ脅威情報 |
+| `audit_patterns.md` | KPIトレンド・改善サイクル |
+| `hr_patterns.md` | チームパフォーマンストレンド |
+| `verification_patterns.md` | シミュレーション検証パターン |
 
 ---
 

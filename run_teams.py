@@ -144,7 +144,14 @@ def call_gemini(prompt: str) -> tuple[str, list[dict]]:
         'contents': [{'parts': [{'text': prompt}]}],
         'tools': [{'google_search': {}}],
     }
-    resp = requests.post(f'{GEMINI_URL}?key={GEMINI_KEY}', json=payload, timeout=60)
+    for attempt in range(3):
+        try:
+            resp = requests.post(f'{GEMINI_URL}?key={GEMINI_KEY}', json=payload, timeout=120)
+            break
+        except requests.exceptions.Timeout:
+            if attempt == 2:
+                return '（Gemini タイムアウト - 市場データ取得不可）', []
+            import time; time.sleep(5)
     data = resp.json()
     candidate = (data.get('candidates') or [{}])[0]
     text = (candidate.get('content', {}).get('parts') or [{}])[0].get('text', '')
@@ -187,6 +194,34 @@ def load_json(filename: str, default=None):
         except Exception:
             pass
     return default if default is not None else {}
+
+
+def _fetch_fresh_price(code: str, fallback: float) -> float:
+    """J-Quants V2 から最新終値を直接取得する。
+    - 当日データがあればその終値を返す
+    - 当日データ未更新（15:30前など）なら直近5営業日の最終バーを返す
+    - 取得失敗時は fallback をそのまま返す
+    """
+    jq_key = os.environ.get('JQUANTS_API_KEY', '')
+    if not jq_key:
+        return fallback
+    try:
+        code5 = str(code).zfill(4) + '0'
+        headers = {'x-api-key': jq_key}
+        today_s = NOW_JST.strftime('%Y%m%d')
+        past_s  = (NOW_JST - timedelta(days=7)).strftime('%Y%m%d')
+        url = (f'https://api.jquants.com/v2/equities/bars/daily'
+               f'?code={code5}&from={past_s}&to={today_s}')
+        resp = requests.get(url, headers=headers, timeout=10)
+        resp.raise_for_status()
+        bars = resp.json().get('data', [])
+        if bars:
+            last = bars[-1]
+            price = last.get('AdjClose') or last.get('Close') or fallback
+            return float(price)
+    except Exception as e:
+        print(f'  [警告] J-Quants価格取得失敗 ({code}): {e}')
+    return fallback
 
 
 # ─── ラベルルール（全チーム共通・全プロンプトに必ず含める） ─────────
@@ -334,243 +369,428 @@ def get_feedback_prefix(team_key: str) -> str:
     return '\n'.join(lines) + '\n\n' if lines else ''
 
 
+# ─── 知識管理システム（自律学習のための永続化） ─────────────────────────────
+KNOWLEDGE_DIR = Path('knowledge')
+KNOWLEDGE_DIR.mkdir(exist_ok=True)
+
+def read_knowledge(key: str, max_chars: int = 3000) -> str:
+    """過去に蓄積した知識・パターン・洞察を読む"""
+    path = KNOWLEDGE_DIR / f'{key}.md'
+    if path.exists():
+        content = path.read_text(encoding='utf-8')
+        return content[-max_chars:] if len(content) > max_chars else content
+    return '（知識なし: 初回実行）'
+
+def write_knowledge(key: str, content: str):
+    """今日の洞察・学びを将来の参考のために保存する（直近30エントリ保持）"""
+    path = KNOWLEDGE_DIR / f'{key}.md'
+    header = f'# {key} Knowledge Base\n'
+    existing = path.read_text(encoding='utf-8') if path.exists() else header
+    entry = f'\n## {TODAY}\n{content}\n'
+    # 「## YYYY-MM-DD」区切りで直近30エントリを保持
+    sections = existing.split('\n## 20')
+    if len(sections) > 31:
+        sections = sections[:1] + sections[-30:]
+    new_content = '\n## 20'.join(sections) + entry
+    path.write_text(new_content, encoding='utf-8')
+    print(f'    [知識保存] knowledge/{key}.md 更新')
+
+
+# ─── エージェントツール定義 ────────────────────────────────────────────────
+AGENT_TOOLS = [
+    {
+        'name': 'search_market_info',
+        'description': 'Gemini Google SearchでリアルタイムWebから市場情報・ニュース・銘柄情報を検索する。複数回呼び出し可能。',
+        'input_schema': {
+            'type': 'object',
+            'properties': {
+                'query': {'type': 'string', 'description': '検索クエリ（日本語可。具体的な数値・銘柄名・指数名を含めると精度が上がる）'}
+            },
+            'required': ['query']
+        }
+    },
+    {
+        'name': 'get_screening_data',
+        'description': 'J-Quantsスクリーニング結果を取得する。全銘柄のRS50w・ミネルヴィニスコア・価格・出来高比率を含む。',
+        'input_schema': {
+            'type': 'object',
+            'properties': {
+                'min_score': {'type': 'integer', 'description': '最小ミネルヴィニスコア（0-7）。デフォルト0', 'default': 0},
+                'top_n': {'type': 'integer', 'description': 'RS順上位N件。デフォルト20', 'default': 20}
+            }
+        }
+    },
+    {
+        'name': 'get_fins_data',
+        'description': '特定銘柄の財務データ（決算・営業利益成長率・業績グレードS/A/B/C/D）を取得する。',
+        'input_schema': {
+            'type': 'object',
+            'properties': {
+                'code': {'type': 'string', 'description': '銘柄コード（4桁、例: "6857"）'}
+            },
+            'required': ['code']
+        }
+    },
+    {
+        'name': 'get_portfolio',
+        'description': '現在のポートフォリオ・監視銘柄リストを取得する。',
+        'input_schema': {
+            'type': 'object',
+            'properties': {
+                'type': {
+                    'type': 'string',
+                    'enum': ['portfolio', 'watchlist', 'both'],
+                    'description': '取得対象（portfolio/watchlist/both）',
+                    'default': 'both'
+                }
+            }
+        }
+    },
+    {
+        'name': 'read_past_report',
+        'description': '本日または過去に生成されたチームレポートを読む。他チームの分析結果を参照するときに使用。',
+        'input_schema': {
+            'type': 'object',
+            'properties': {
+                'report_name': {
+                    'type': 'string',
+                    'description': 'レポート名: info_gathering, analysis, risk, strategy, verification, security, internal_audit, hr_report, latest_report'
+                },
+                'max_chars': {'type': 'integer', 'description': '最大文字数（デフォルト2000）', 'default': 2000}
+            },
+            'required': ['report_name']
+        }
+    },
+    {
+        'name': 'get_simulation_status',
+        'description': '現在のシミュレーション追跡状況（アクティブ銘柄・損益・勝率）を取得する。',
+        'input_schema': {'type': 'object', 'properties': {}}
+    },
+    {
+        'name': 'get_kpi_history',
+        'description': '過去のチームKPIスコア履歴を取得する。チーム別のパフォーマンストレンドを把握できる。',
+        'input_schema': {
+            'type': 'object',
+            'properties': {
+                'days': {'type': 'integer', 'description': '取得日数（デフォルト14）', 'default': 14}
+            }
+        }
+    },
+    {
+        'name': 'read_knowledge',
+        'description': '過去の実行で蓄積した知識・パターン・洞察を読む。継続的学習のために重要。毎回の実行冒頭に呼ぶこと。',
+        'input_schema': {
+            'type': 'object',
+            'properties': {
+                'key': {'type': 'string', 'description': '知識キー（例: "info_patterns", "analysis_patterns", "market_cycles"）'},
+                'max_chars': {'type': 'integer', 'description': '最大文字数（デフォルト3000）', 'default': 3000}
+            },
+            'required': ['key']
+        }
+    },
+    {
+        'name': 'write_knowledge',
+        'description': '今日の重要な洞察・発見・パターンを将来の参考のために保存する。直近30回分を自動保持。',
+        'input_schema': {
+            'type': 'object',
+            'properties': {
+                'key': {'type': 'string', 'description': '知識キー（チーム名や分析テーマなど）'},
+                'content': {'type': 'string', 'description': '保存する内容（Markdown形式）'}
+            },
+            'required': ['key', 'content']
+        }
+    },
+    {
+        'name': 'finalize_report',
+        'description': 'レポートを完成させて保存する。分析が完了したら必ずこのツールを呼ぶこと。呼ぶとエージェントが終了する。',
+        'input_schema': {
+            'type': 'object',
+            'properties': {
+                'content': {'type': 'string', 'description': 'レポートの全内容（Markdown形式。全ての文に[事実]または[AI分析]ラベル必須）'}
+            },
+            'required': ['content']
+        }
+    }
+]
+
+
+def _execute_tool(name: str, params: dict, team_name: str = '') -> str:
+    """エージェントのツール呼び出しを実行する"""
+    try:
+        if name == 'search_market_info':
+            query = params.get('query', '')
+            print(f'    [Gemini検索] {query[:60]}')
+            text, sources = call_gemini(query)
+            if sources:
+                save_source_log(team_name or 'エージェント', sources, text)
+            return text[:4000] if text else '（Gemini応答なし）'
+
+        elif name == 'get_screening_data':
+            screen = load_json('screen_full_results.json', {})
+            stocks = screen_to_list(screen)
+            min_score = params.get('min_score', 0)
+            top_n = params.get('top_n', 20)
+            filtered = sorted(
+                [s for s in stocks if isinstance(s, dict) and _score_num(s) >= min_score],
+                key=_rs26w, reverse=True
+            )[:top_n]
+            return json.dumps(filtered, ensure_ascii=False, indent=2)[:5000]
+
+        elif name == 'get_fins_data':
+            code = str(params.get('code', ''))
+            fins = load_json('fins_data.json', {})
+            if code in fins:
+                return json.dumps(fins[code], ensure_ascii=False, indent=2)[:3000]
+            chart = load_json('chart_data.json', {})
+            if code in chart:
+                return f'チャートデータ: {json.dumps(chart[code], ensure_ascii=False)[:1500]}'
+            return f'（{code}の財務データなし: fins_data.jsonを確認してください）'
+
+        elif name == 'get_portfolio':
+            ptype = params.get('type', 'both')
+            result = {}
+            if ptype in ('portfolio', 'both'):
+                result['portfolio'] = load_json('portfolio.json', {})
+            if ptype in ('watchlist', 'both'):
+                result['watchlist'] = load_json('watchlist.json', [])
+            return json.dumps(result, ensure_ascii=False, indent=2)[:3000]
+
+        elif name == 'read_past_report':
+            report_name = params.get('report_name', '')
+            max_chars = params.get('max_chars', 2000)
+            content = read_report(report_name)
+            return content[:max_chars] if len(content) > max_chars else content
+
+        elif name == 'get_simulation_status':
+            for p in [REPORT_DIR / 'simulation_log.json', DATA_DIR / 'reports' / 'simulation_log.json']:
+                if p.exists():
+                    return p.read_text(encoding='utf-8')[:4000]
+            return '（シミュレーションデータなし）'
+
+        elif name == 'get_kpi_history':
+            days = params.get('days', 14)
+            for p in [REPORT_DIR / 'kpi_log.json', DATA_DIR / 'reports' / 'kpi_log.json']:
+                if p.exists():
+                    try:
+                        data = json.loads(p.read_text(encoding='utf-8'))
+                        return json.dumps(data[-days:], ensure_ascii=False, indent=2)[:3000]
+                    except Exception:
+                        pass
+            return '（KPIデータなし）'
+
+        elif name == 'read_knowledge':
+            return read_knowledge(params.get('key', ''), params.get('max_chars', 3000))
+
+        elif name == 'write_knowledge':
+            write_knowledge(params.get('key', 'unknown'), params.get('content', ''))
+            return '知識保存完了'
+
+        elif name == 'finalize_report':
+            return '__FINALIZED__'
+
+        else:
+            return f'（不明なツール: {name}）'
+
+    except Exception as e:
+        return f'（ツール実行エラー [{name}]: {e}）'
+
+
+def _agent_system_prompt(team_name: str, description: str) -> str:
+    """全チーム共通のエージェントシステムプロンプトを生成する"""
+    return f"""あなたは投資チームの「{team_name}」です。ミネルヴィニ流成長株投資システムの一部として機能します。
+
+【本日の状況】
+- 日付: {TODAY} / {DAY_LABEL}
+- 市場稼働: {'はい（平日）' if IS_MARKET_DAY else 'いいえ（週末）'}
+- 本日のフォーカス: {DAY_FOCUS}
+
+【あなたのミッション】
+{description}
+
+【必須ルール】
+1. 全ての情報に[事実]または[AI分析]ラベルを付ける
+   - [事実]: 市場データ・数値・ニュース等の客観的事実
+   - [AI分析]: AIの推論・判断・予測・解釈
+2. ツールを積極的に使い、データに基づいた分析を行う
+3. 最初にread_knowledgeを呼んで過去の洞察を参照する
+4. 分析完了後は必ずfinalize_reportを呼ぶ（これを忘れるとレポートが保存されない）
+5. 重要な発見はwrite_knowledgeで保存して学習を蓄積する
+
+【ツール利用指針】
+- 情報が足りなければsearch_market_infoを複数回呼ぶ（具体的なクエリで精度UP）
+- 銘柄の詳細財務はget_fins_dataで確認する
+- 他チームの分析はread_past_reportで参照する
+- 週末(土日)はIS_MARKET_DAY=Falseのため市場データが限定的"""
+
+
+def _run_agent_team(
+    team_key: str,
+    team_name: str,
+    system_prompt: str,
+    initial_message: str,
+    report_name: str,
+    max_iterations: int = 15
+) -> str:
+    """
+    エージェントループを実行する（Claude API Tool Use）。
+    エージェントはfinalize_reportを呼ぶまで自律的にツールを使い続ける。
+    max_iterations: 無限ループ防止（デフォルト15回）
+    """
+    messages = [{'role': 'user', 'content': initial_message}]
+    final_content = ''
+
+    for iteration in range(max_iterations):
+        response = client.messages.create(
+            model=MODEL,
+            max_tokens=8000,
+            system=system_prompt,
+            tools=AGENT_TOOLS,
+            messages=messages
+        )
+
+        messages.append({'role': 'assistant', 'content': response.content})
+
+        # テキストで自然終了
+        if response.stop_reason == 'end_turn':
+            text_blocks = [b.text for b in response.content if hasattr(b, 'text')]
+            final_content = '\n'.join(text_blocks)
+            print(f'  [エージェント:{team_name}] テキストで終了（{iteration+1}回反復）')
+            break
+
+        if response.stop_reason != 'tool_use':
+            print(f'  [エージェント:{team_name}] 予期しない終了: {response.stop_reason}')
+            break
+
+        # ツール呼び出しを実行
+        tool_results = []
+        finalized = False
+
+        for block in response.content:
+            if block.type != 'tool_use':
+                continue
+
+            tool_name = block.name
+            tool_input = block.input if isinstance(block.input, dict) else {}
+            print(f'    [ツール:{iteration+1}] {tool_name}')
+
+            if tool_name == 'finalize_report':
+                final_content = tool_input.get('content', '')
+                tool_results.append({
+                    'type': 'tool_result',
+                    'tool_use_id': block.id,
+                    'content': 'レポート確定完了。エージェントを終了します。'
+                })
+                finalized = True
+            else:
+                result = _execute_tool(tool_name, tool_input, team_name)
+                tool_results.append({
+                    'type': 'tool_result',
+                    'tool_use_id': block.id,
+                    'content': result
+                })
+
+        messages.append({'role': 'user', 'content': tool_results})
+
+        if finalized:
+            print(f'  [エージェント:{team_name}] finalize_report呼び出し完了（{iteration+1}回反復）')
+            break
+    else:
+        print(f'  [警告] {team_name}: エージェントループが上限({max_iterations})に達しました')
+        if not final_content:
+            final_content = f'# {team_name} レポート [{DAY_LABEL}]\n日付: {TODAY}\n\n（エージェントループが最大反復数に達しました）'
+
+    if report_name and final_content:
+        write_report(report_name, final_content)
+
+    return final_content
+
+
 # ─── Team 1: 情報収集 ────────────────────────────────────────────
 def run_info_gathering():
-    screen = load_json('screen_full_results.json', {})
-    stocks = screen_to_list(screen)
-    total = len(stocks)
-    top = sorted(
-        [s for s in stocks if isinstance(s, dict)],
-        key=_rs26w, reverse=True
-    )[:10]
-    top_str = '\n'.join(
-        f"  {s.get('code','?')} {s.get('name','')}: RS50w={_rs26w(s):.2f}, score={s.get('score','?')}"
-        for s in top
+    print(f'  [エージェント起動] 情報収集チーム ({DAY_LABEL})')
+
+    system = _agent_system_prompt(
+        '情報収集チーム',
+        '市場情報を正確・迅速に収集し、後続チームに届ける。'
+        '指数・為替・金利・コモディティ・イベント・セクター・ニュース・RS上位の8項目を必ず網羅する。'
+        'データの正確性を最優先し、不明な場合は「情報なし」と明記する。'
     )
 
-    print(f'  [Gemini] 情報収集中... ({DAY_LABEL})')
-    if IS_MARKET_DAY:
-        g_prompt = f"""{TODAY} の最新市場情報を収集してください。
+    initial = f"""本日{TODAY}（{DAY_LABEL}）の情報収集レポートを作成してください。
 
-以下を正確な数値で答えてください（最新の終値・速報値）:
-1. 日経平均・TOPIX・マザーズ の終値と前日比（%）
-2. S&P500・NASDAQ・ダウ の終値と前日比（%）
-3. ドル円・ユーロ円 の現在値
-4. 米10年債利回り・日本10年債利回り
-5. WTI原油・金 の現在値
-6. 本日〜今週の重要経済イベント（日時・内容・予想値）
-7. 昨日のS&P500セクター別騰落ランキング（全11セクター）
-8. 日本株・米国株で昨日特に話題になったニュース3件
-9. 直近3営業日以内に提出された大量保有報告書（5%超取得）の主要事例（銘柄名・提出者・保有割合・目的）
-10. 本日の日本株で出来高急増（前日比2倍以上）した銘柄トップ5（銘柄名・出来高比率・急増理由）
-"""
-    elif DAY_MODE == 'saturday':
-        g_prompt = f"""今週（{TODAY}週）の市場総括と来週の展望を収集してください。
+【手順】
+1. read_knowledge("info_patterns") で過去の収集パターン・発見を確認
+2. search_market_info で本日の市場データを収集（平日は複数クエリ推奨）:
+   - "{TODAY} 日経平均 終値 TOPIX 前日比"
+   - "{TODAY} S&P500 NASDAQ ダウ 為替 ドル円"
+   - "{TODAY} 米10年債利回り WTI金 重要イベント"
+   - "{TODAY} 日本株 ニュース 材料 セクター"
+3. get_screening_data(top_n=10) でRS上位銘柄を確認
+4. write_knowledge("info_patterns") で今日の重要な発見・パターンを保存
+5. finalize_report でレポートを完成させる
 
-1. 今週の日経平均・S&P500・NASDAQの週間騰落率と主要テーマ
-2. 今週最も動いたセクター（上位3・下位3）とその理由
-3. 来週（月〜金）の重要経済指標スケジュール（日時・予想値・注目理由）
-4. 来週の日米主要決算発表予定
-5. 今週の地政学・マクロ動向で来週に持ち越されるリスク
-6. 機関投資家の今週の資金フロー動向（何が買われ何が売られたか）
-"""
-    else:  # sunday
-        g_prompt = f"""来週（{TODAY}翌週）の投資環境を整理してください。
-
-1. 来週の重要経済指標（日時・前回値・予想値・注目度）
-2. 来週の日米主要決算（企業名・予想EPS・注目ポイント）
-3. 来週のFRB高官発言・金融政策イベント予定
-4. 来週注目のIPO・PO（需給への影響）
-5. 来週のマクロ環境予測（強気・弱気シナリオ）
-6. 週末の米国先物・ADR動向（日本市場への影響）
-"""
-    gemini_text, sources = call_gemini(g_prompt)
-    save_source_log('情報収集チーム', sources, gemini_text)
-
-    if IS_MARKET_DAY:
-        output_format = f"""## 出力フォーマット（必ずこの形式で）
+【レポートフォーマット】
 # 情報収集チーム レポート [{DAY_LABEL}]
 日付: {TODAY}
+✅ 検証済み（情報収集チームリーダー確認）
 
 ## 市場概況
 （表形式: 指数・終値・前日比）
 
-## 為替・コモディティ
-| 項目 | 現在値 | 動向 |
-...
+## 為替・コモディティ・金利
 
-## 金利
-| 項目 | 水準 | 動向 |
-...
+## 本日の注目イベント・スケジュール
 
-## 本日の注目イベント
-（日時・内容・予想値・注目理由）
+## セクター動向
 
-## セクター動向（S&P500）
-（上昇・下落ランキング）
+## 注目ニュース（3件以上）
 
-## 注目ニュース
-1. ...
-2. ...
-3. ...
+## スクリーニング状況（RS上位）
 
-## 大量保有報告書（直近3営業日）
-| 銘柄 | 提出者 | 保有割合 | 目的 |
-...
-（情報がない場合は「本日提出なし」と記載）
+## 翌日・来週の注目点
 
-## 出来高急増銘柄（前日比2倍以上）
-| 銘柄 | 出来高比率 | 急増理由 |
-...
-（情報がない場合は「該当なし」と記載）
+---
+{'週末のため市場データは限定的。ニュース・マクロ環境に集中してください。' if not IS_MARKET_DAY else '平日なので市場データを完全収集してください。'}"""
 
-## スクリーニング状況
-スキャン: {total}銘柄 / RS上位10銘柄
-{top_str}"""
-    elif DAY_MODE == 'saturday':
-        output_format = f"""## 出力フォーマット（必ずこの形式で）
-# 情報収集チーム レポート [{DAY_LABEL}]
-日付: {TODAY}
-
-## 今週の市場総括
-| 指数 | 今週騰落 | 主要テーマ |
-...
-
-## 今週のセクター動向
-（上位3・下位3とその理由）
-
-## 来週の重要イベントカレンダー
-| 日付 | イベント | 予想値 | 注目理由 |
-...
-
-## 来週の決算スケジュール
-（注目企業名・予想EPS）
-
-## 持ち越しリスク
-（来週に影響する今週の懸念事項）"""
-    else:
-        output_format = f"""## 出力フォーマット（必ずこの形式で）
-# 情報収集チーム レポート [{DAY_LABEL}]
-日付: {TODAY}
-
-## 来週の重要イベントカレンダー（詳細版）
-| 曜日 | 日時 | イベント | 前回値 | 予想値 | 注目度 |
-...
-
-## 来週の決算カレンダー
-| 曜日 | 企業 | 予想EPS | 注目ポイント |
-...
-
-## マクロ環境シナリオ
-### 強気シナリオ（買い場出現の条件）
-### 弱気シナリオ（リスクオフ継続の条件）
-
-## 週明け日本市場への影響
-（米先物・ADR動向より）"""
-
-    prompt = f"""あなたは投資チームの「情報収集チーム」です。{DAY_LABEL}のレポートを作成してください。
-
-## Geminiが収集した情報
-{gemini_text}
-
-{output_format}
-
-## 必須: 出力前の3段階検証（省略不可）
-レポートを出力する前に、以下を順番に実施し問題があれば修正してから最終出力すること:
-- 【作業者検証】各担当者: データの前日比異常・根拠なし断定・空欄がないか
-- 【責任者検証】リーダー: 全9セクションが揃っているか・担当者間の矛盾がないか
-- 出力冒頭に「✅ 検証済み（情報収集チームリーダー確認）」と必ず記載する
-"""
-    write_report('info_gathering', call_claude(prompt))
+    _run_agent_team('info', '情報収集チーム', system, initial, 'info_gathering')
 
 
 # ─── Team 2: 分析 ────────────────────────────────────────────────
 def run_analysis():
-    screen = load_json('screen_full_results.json', {})
-    stocks = screen_to_list(screen)
-    top20 = sorted(
-        [s for s in stocks if isinstance(s, dict) and _score_num(s) >= 6],
-        key=_rs26w, reverse=True
-    )[:20]
-    info_report = read_report('info_gathering')
-    top10_names = [f"{s.get('code')} {s.get('name','')}" for s in top20[:10]]
-    names_str = '・'.join(top10_names) if top10_names else '（データなし）'
-    watchlist = load_json('watchlist.json', [])
-    wl_names = '・'.join([f"{w.get('code','')} {w.get('name','')}" for w in watchlist[:10]]) if watchlist else '（なし）'
+    print(f'  [エージェント起動] 銘柄選定・仮説チーム ({DAY_LABEL})')
 
-    print(f'  [Gemini] 銘柄情報収集中... ({DAY_LABEL})')
-    if IS_MARKET_DAY:
-        g_prompt = f"""以下の日本株について最新情報を収集してください。
-
-対象銘柄: {names_str}
-
-各銘柄について:
-1. 直近の決算結果（売上・営業利益の前年比成長率）
-2. 直近のニュース・材料（ポジティブ/ネガティブ）
-3. アナリストの評価・目標株価
-4. 株価の最近の動き（上昇トレンド中か、調整中か）
-5. 業界全体の動向（追い風・逆風）
-6. 直近の出来高動向（急増・急減のタイミングと要因、機関投資家の動きが示唆される異常出来高）
-
-事実のみを記載し、情報が見つからない場合はその旨を明記してください。
-"""
-    elif DAY_MODE == 'saturday':
-        g_prompt = f"""今週の株式市場を振り返り、分析精度の検証に必要な情報を収集してください。
-
-監視銘柄: {wl_names}
-
-1. 今週のRS上位銘柄の値動き実績（上昇・下落・レンジ）
-2. 今週ブレイクアウトした銘柄とその継続性
-3. 今週のミネルヴィニ戦略に合致した動き（Stage-2維持・崩壊）
-4. セクター別の今週の強弱（勝ちセクター・負けセクター）
-5. 来週のRS上位候補になりそうな銘柄・テーマ
-"""
-    else:  # sunday
-        g_prompt = f"""来週エントリーを検討すべき日本株候補の事前情報を収集してください。
-
-現在の監視銘柄: {wl_names}
-
-1. 各監視銘柄の最新ファンダメンタルズ（直近決算・成長率）
-2. 来週の各銘柄に関する決算・材料・イベント予定
-3. セクターテーマ別の来週の有望銘柄
-4. 新規に監視リスト入りを検討すべき急成長株（IPO含む）
-5. ミネルヴィニ基準を満たしつつある「準備中」の銘柄
-"""
-    gemini_text, sources = call_gemini(g_prompt)
-    save_source_log('銘柄選定・仮説チーム', sources, gemini_text)
-
-    # vol_ratio summary for top20
-    vol_highlights = [
-        f"{s.get('code')} {s.get('name','')} (vol_ratio={s.get('vol_ratio',0):.2f})"
-        for s in top20 if s.get('vol_ratio', 0) >= 1.5
-    ]
-    vol_str = '\n'.join(vol_highlights) if vol_highlights else '（出来高急増なし）'
-
+    # 前回監査の改善提案を注入（継続改善ループ）
     feedback_prefix = get_feedback_prefix('analysis')
 
-    if IS_MARKET_DAY:
-        prompt = f"""{feedback_prefix}あなたは投資チームの「銘柄選定・仮説チーム」です。本日 {TODAY} の銘柄分析を行ってください。
+    system = _agent_system_prompt(
+        '銘柄選定・仮説チーム',
+        'ミネルヴィニStage-2基準でAランク銘柄を選定し、エントリー仮説を立案する。'
+        'テクニカル（MA配置・RS）・ファンダメンタル（成長率・業績グレード）・出来高（機関動向）の3軸で評価。'
+        'Aランク判定には必ず根拠3つ以上を明記すること。' +
+        (f'\n\n【前回監査の改善提案】\n{feedback_prefix}' if feedback_prefix.strip() else '')
+    )
 
-## 情報収集チームのレポート
-{info_report[:1200]}
+    initial = f"""本日{TODAY}（{DAY_LABEL}）の銘柄選定・仮説レポートを作成してください。
 
-## スクリーニング通過銘柄（スコア6以上、RS上位20件）
-{json.dumps(top20, ensure_ascii=False, indent=2)[:2500]}
+【手順】
+1. read_knowledge("analysis_patterns") で過去の分析パターン・的中傾向を確認
+2. read_past_report("info_gathering") で本日の市場環境を把握
+3. get_screening_data(min_score=6, top_n=20) でスコア6以上のRS上位銘柄を取得
+4. 注目銘柄のget_fins_dataで財務データ確認（上位5銘柄程度）
+5. search_market_info で上位銘柄の最新情報・材料を収集
+6. write_knowledge("analysis_patterns") で今日の発見・有効だったパターンを保存
+7. finalize_report でA/B/Cランク付きレポートを完成させる
 
-## 出来高急増銘柄（vol_ratio≥1.5、本日スクリーニング通過分）
-{vol_str}
-
-## Geminiが収集した各銘柄の最新情報（出来高動向含む）
-{gemini_text}
-
-## 分析基準（ミネルヴィニStage-2）
+【分析基準（ミネルヴィニStage-2）】
 - テクニカル: 株価>SMA50>SMA150>SMA200、SMA200上昇中、52週高値の75%以上
-- RS: RS26wがプラスかつ高水準 / ファンダ: 売上・利益が前年比20%以上成長
-- 出来高確認: ブレイクアウト時は平均の1.5倍以上が理想。急増出来高＝機関投資家の動き示唆
+- RS: RS50wがプラスかつ高水準
+- ファンダ: 売上・利益前年比20%以上成長（業績GradeはS/Aのみをエントリー対象）
+- 出来高: ブレイクアウト時は平均の1.5倍以上が理想（vol_ratio≥1.5）
 
-## 出力フォーマット（必ずこの形式で）
+【レポートフォーマット】
 # 銘柄選定・仮説チーム レポート [{DAY_LABEL}]
 日付: {TODAY}
+✅ 検証済み（銘柄選定・仮説チームリーダー確認）
 
 ## 市場環境評価
 
@@ -578,240 +798,72 @@ def run_analysis():
 
 ### Aランク（エントリー候補）
 #### [銘柄名]（コード）
-- **テクニカル判断**: （移動平均の並び・RSの状態）
-- **ファンダ判断**: （売上/利益成長率・EPS傾向）
-- **出来高分析**: （vol_ratio・出来高トレンド・機関動向示唆）
-- **最新材料**: （Gemini情報より）
-- **ランクA判定理由**: （根拠3つ以上）
+- **テクニカル判断**: （MA配置・RS状態）
+- **ファンダ判断**: （成長率・業績グレード）
+- **出来高分析**: （vol_ratio・機関動向示唆）
+- **最新材料**: （ニュース・材料）
+- **ランクA判定理由**: （根拠3つ以上必須）
 - **リスク要因**: （懸念点）
 
 ### Bランク（ウォッチ継続）
-#### [銘柄名]（コード）
-- **ランクB判定理由**: （Aにならない理由を明記）
-
 ### Cランク（様子見）
-（銘柄名・コードと一言理由のみ）
 
-## 出来高注目銘柄（vol_ratio急増・機関動向）
-（本日の出来高急増銘柄の解釈：買い集め・売り抜け・材料反応のいずれか）
+## 翌日仮説（Aランク銘柄の方向・根拠・信頼度）
 
-## 注目パターン（VCP・カップ等）
+## 総合所見"""
 
-## 総合所見
-
-## 必須: 出力前の3段階検証（省略不可）
-- 【テクニカル担当自己検証】MA配置・RSデータに矛盾・誤りがないか
-- 【仮説担当自己検証】前日差異分析の教訓が今日の仮説に反映されているか
-- 【責任者検証】AランクとBランクの区別根拠が明確か・vol_ratio分析が全Aランクに記載されているか
-- 出力冒頭に「✅ 検証済み（銘柄選定・仮説チームリーダー確認）」と必ず記載する
-"""
-    elif DAY_MODE == 'saturday':
-        prev_analysis = read_report('analysis')
-        prompt = f"""あなたは投資チームの「銘柄選定・仮説チーム」です。{DAY_LABEL}として今週の分析精度を振り返ってください。
-
-## 今週の分析レポート（直近）
-{prev_analysis[:2000]}
-
-## Geminiが収集した今週の実績データ
-{gemini_text}
-
-## 出力フォーマット（必ずこの形式で）
-# 銘柄選定・仮説チーム レポート [{DAY_LABEL}]
-日付: {TODAY}
-
-## 今週の分析精度振り返り
-| 銘柄 | 当初ランク | 今週の実績 | 予測精度 | 改善点 |
-|------|----------|-----------|---------|-------|
-
-## 今週うまくいった分析パターン
-（何が機能したか・理由）
-
-## 今週外れた分析・改善すべき点
-（何が外れたか・原因・来週への修正方針）
-
-## 来週の注目テーマ・銘柄候補
-| 銘柄 | コード | 注目理由 | 来週確認すべき点 |
-|------|--------|---------|----------------|
-
-## 分析手法改善提案
-（今週の経験から導いた改善策）
-"""
-    else:  # sunday
-        prompt = f"""あなたは投資チームの「銘柄選定・仮説チーム」です。{DAY_LABEL}として来週の銘柄を事前分析してください。
-
-## 情報収集チームの来週準備レポート
-{info_report[:1500]}
-
-## Geminiが収集した来週の注目銘柄情報
-{gemini_text}
-
-## 出力フォーマット（必ずこの形式で）
-# 銘柄選定・仮説チーム レポート [{DAY_LABEL}]
-日付: {TODAY}
-
-## 来週の事前分析（Aランク候補）
-#### [銘柄名]（コード）
-- **現在の状況**: （チャート形状・MA配置）
-- **来週のエントリー条件**: （何が起きたらエントリーするか）
-- **ファンダメンタルズ**: （成長率・業績）
-- **注意すべきイベント**: （決算・材料）
-
-## 来週の新規監視リスト候補
-| 銘柄 | コード | 追加理由 |
-|------|--------|---------|
-
-## 来週の分析方針
-（重点的に見るセクター・テーマ）
-"""
-    write_report('analysis', call_claude(prompt, max_tokens=6000))
+    _run_agent_team('analysis', '銘柄選定・仮説チーム', system, initial, 'analysis')
 
 
 # ─── Team 3: リスク管理 ──────────────────────────────────────────
 def run_risk_management():
-    portfolio = load_json('portfolio.json', {})
-    info_report = read_report('info_gathering')
-    analysis_report = read_report('analysis')
+    print(f'  [エージェント起動] リスク管理チーム ({DAY_LABEL})')
 
-    pf_stocks = []
-    if isinstance(portfolio, dict):
-        pf_stocks = [f"{k} {v.get('name','')}" for k, v in portfolio.items() if k != '__meta__']
-    elif isinstance(portfolio, list):
-        pf_stocks = [f"{s.get('code','')} {s.get('name','')}" for s in portfolio]
-
-    # ポートフォリオが空の場合は「現金100%モード」として明示
-    IS_CASH_MODE = len(pf_stocks) == 0
-    pf_summary = (
-        "【現金100%モード】保有銘柄なし。DD・損切りラインは「対象外」として評価。"
-        if IS_CASH_MODE else
-        f"保有銘柄数: {len(pf_stocks)}銘柄"
+    system = _agent_system_prompt(
+        'リスク管理チーム',
+        '資産を守り、ルールベースのリスク管理を徹底する。'
+        '損切りライン: -7〜8% / 最大DD: -10% / セクター集中上限: 30%。'
+        '現金100%モード時はDD・損切り・セクター集中度は「対象外（✅）」として記録する。'
     )
 
-    print(f'  [Gemini] リスク情報収集中... ({DAY_LABEL})')
-    if IS_MARKET_DAY:
-        if pf_stocks:
-            g_prompt = f"""保有銘柄のリスク情報と市場全体のリスク要因を収集してください。
+    initial = f"""本日{TODAY}（{DAY_LABEL}）のリスク管理レポートを作成してください。
 
-保有銘柄: {', '.join(pf_stocks[:10])}
+【手順】
+1. read_knowledge("risk_patterns") で過去のリスク管理パターンを確認
+2. get_portfolio() でポートフォリオ状況を確認（現金100%かどうかを確認）
+3. read_past_report("info_gathering", max_chars=1000) で市場環境を把握
+4. read_past_report("analysis", max_chars=800) で銘柄評価を確認
+5. search_market_info で現在のリスク要因を収集:
+   - "{TODAY} VIX 信用スプレッド マクロリスク"
+   - "{TODAY} 地政学リスク 市場下落 要因"
+6. get_simulation_status() でシミュレーション状況も参考に
+7. write_knowledge("risk_patterns") で今日の重要なリスク発見を保存
+8. finalize_report でレポートを完成させる
 
-各銘柄について:
-1. 直近のネガティブニュース・下落材料
-2. 決算ミス・業績下方修正の情報
-3. 規制・訴訟・不祥事リスク
-4. セクター全体の逆風要因
-5. 地政学リスクの影響度
-
-市場全体: VIX水準・信用スプレッド・マクロリスク（{TODAY}時点）
-"""
-        else:
-            g_prompt = f"{TODAY} の市場全体のリスク要因を収集してください。VIX・信用スプレッド・地政学リスク・マクロリスク。"
-    elif DAY_MODE == 'saturday':
-        g_prompt = f"""今週の市場リスクを総括し、来週のリスクシナリオを調査してください。
-
-1. 今週顕在化したリスク事象（実際に株価下落につながった材料）
-2. 今週解消されたリスク（心配していたが影響軽微だったもの）
-3. 来週に持ち越されるリスク（地政学・金融政策・決算）
-4. 来週の市場の下落シナリオと確率
-5. 現在のVIX水準と歴史的位置づけ
-"""
-    else:  # sunday
-        g_prompt = f"""来週の投資リスクを事前に把握するための情報を収集してください。
-
-1. 来週の重要イベントでの「サプライズリスク」（ネガティブ方向）
-2. 週明け月曜日の市場に影響しそうな週末ニュース
-3. 来週注意すべき決算（業績悪化が懸念される企業）
-4. 来週の地政学リスクカレンダー
-5. 現在の信用残・空売り残の水準（需給リスク）
-"""
-    gemini_text, sources = call_gemini(g_prompt)
-    save_source_log('リスク管理チーム', sources, gemini_text)
-
-    if IS_MARKET_DAY:
-        risk_format = f"""# リスク管理チーム レポート [{DAY_LABEL}]
+【レポートフォーマット】
+# リスク管理チーム レポート [{DAY_LABEL}]
 日付: {TODAY}
 
 ## ポートフォリオ概況
-- {pf_summary}
 
-## リスク指標
+## リスク指標（損切り-7%・DD-10%・セクター集中30%基準）
 | 項目 | 現状 | 警戒水準 | 評価 |
 |------|------|----------|------|
-| 最大含み損率 | {'対象外（現金100%）' if IS_CASH_MODE else '%'} | -7% | {'✅' if IS_CASH_MODE else '✅/⚠️/❌'} |
-| ドローダウン | {'対象外（現金100%）' if IS_CASH_MODE else '%'} | -10% | {'✅' if IS_CASH_MODE else '✅/⚠️/❌'} |
-| セクター集中度 | {'対象外（現金100%）' if IS_CASH_MODE else '%'} | 30% | {'✅' if IS_CASH_MODE else '✅/⚠️/❌'} |
 
 ## 保有銘柄リスク評価
-{'（現金100%のため対象外）' if IS_CASH_MODE else '（各銘柄の損切りラインまでの距離・最新リスク材料）'}
 
-## 市場リスク（Gemini情報より）
+## 市場リスク（VIX・マクロ・地政学）
 
 ## 損切り/縮小候補
-{'（現金100%のため対象外）' if IS_CASH_MODE else ''}
 
 ## 推奨アクション（優先順）"""
-    elif DAY_MODE == 'saturday':
-        risk_format = f"""# リスク管理チーム レポート [{DAY_LABEL}]
-日付: {TODAY}
 
-## 今週のリスク総括
-| リスク項目 | 今週の結果 | 来週への影響 |
-|-----------|----------|------------|
-
-## 今週の損切り実績・DD推移
-（実際の損失・守れたかどうか）
-
-## 来週のリスクシナリオ
-### 警戒シナリオ（確率・トリガー・対応策）
-### 基本シナリオ（最も可能性が高い展開）
-
-## 来週のリスク管理方針
-（ポジションサイズ・損切りライン・現金比率目標）"""
-    else:
-        risk_format = f"""# リスク管理チーム レポート [{DAY_LABEL}]
-日付: {TODAY}
-
-## 来週のリスクカレンダー
-| 曜日 | リスクイベント | 影響度 | 対応方針 |
-|------|-------------|-------|---------|
-
-## 来週のポジション方針
-- 最大投資比率: X%（理由）
-- 1銘柄上限: X%
-- 損切りルール確認
-
-## 週明けの注意点
-（月曜日に確認すべき項目）"""
-
-    prompt = f"""あなたは投資チームの「リスク管理チーム」です。{DAY_LABEL}のリスク評価を行ってください。
-
-## 情報収集チームのレポート
-{info_report[:800]}
-
-## 銘柄選定・仮説チームのレポート
-{analysis_report[:600]}
-
-## ポートフォリオ状況
-{pf_summary}
-{'' if IS_CASH_MODE else json.dumps(portfolio, ensure_ascii=False, indent=2)[:1500]}
-
-## Geminiが収集したリスク情報
-{gemini_text}
-
-## 評価基準
-- 損切りライン: -7〜8% / 最大DD: -10% / セクター集中上限: 30%
-- 現金100%の場合: DD・損切り・セクター集中度は「対象外（✅）」として記録する
-
-## 出力フォーマット
-{risk_format}
-{LABEL_RULE}"""
-    write_report('risk', call_claude(prompt))
+    _run_agent_team('risk', 'リスク管理チーム', system, initial, 'risk')
 
 
 # ─── Team 4: 投資戦略 ────────────────────────────────────────────
 def run_strategy():
-    info_report = read_report('info_gathering')
-    analysis_report = read_report('analysis')
-    risk_report = read_report('risk')
-    strategy_feedback = get_feedback_prefix('strategy')
+    print(f'  [エージェント起動] 投資戦略チーム ({DAY_LABEL})')
 
     # ルールベースのフェーズ事前判定（AIへの参考情報として渡す）
     screen = load_json('screen_full_results.json', {})
@@ -821,283 +873,126 @@ def run_strategy():
         + '\n'.join(f"  - {r}" for r in auto_phase['reasons'])
     )
 
-    print(f'  [Gemini] 戦略情報収集中... ({DAY_LABEL})')
-    if IS_MARKET_DAY:
-        g_prompt = f"""{TODAY} の投資タイミングを判断するための情報を収集してください。
+    # 前回監査の改善提案
+    strategy_feedback = get_feedback_prefix('strategy')
 
-1. 機関投資家・ヘッジファンドの最新ポジション動向
-2. 日本株市場の需給動向（外国人・個人・信託の売買動向）
-3. 信用買い残・信用売り残の水準
-4. Put/Call比率・VIX・Fear&Greedインデックス
-5. 機関投資家の注目テーマ・セクターローテーション動向
-6. 今週のIPO・大型PO予定（需給への影響）
-7. 米国市場のマネーフロー
-8. 重要サポート・レジスタンス水準（日経平均・S&P500）
-"""
-    elif DAY_MODE == 'saturday':
-        g_prompt = f"""今週の投資戦略を振り返るための情報を収集してください。
+    system = _agent_system_prompt(
+        '投資戦略チーム',
+        '市場フェーズを正確に判定し、具体的なエントリー計画を立案する。'
+        'Attack/Steady/Defendの判定根拠を3点以上明記。'
+        'エントリー候補テーブルには銘柄名・コード・価格・損切り・目標・RR比・根拠を全て記載する。' +
+        f'\n\n【ルールベース自動判定（参考）】\n{auto_phase_str}' +
+        (f'\n\n【前回監査の改善提案】\n{strategy_feedback}' if strategy_feedback.strip() else '')
+    )
 
-1. 今週のAttack/Steady/Defend判定の正確性（実際の市場動向と比較）
-2. 今週エントリー推奨した銘柄のパフォーマンス
-3. 今週の市場センチメント変化の主要因
-4. 来週の市場フェーズ予測（強気・弱気の根拠）
-5. 今週の機関投資家の主な売買動向
-"""
-    else:  # sunday
-        g_prompt = f"""来週の投資戦略を立案するための情報を収集してください。
+    initial = f"""本日{TODAY}（{DAY_LABEL}）の投資戦略レポートを作成してください。
 
-1. 現在の市場フェーズ（Attack/Steady/Defend）の判定根拠
-2. 来週のエントリー好機になりそうな銘柄・セクター
-3. 来週の機関投資家の動向予測
-4. 来週の重要テクニカルレベル（日経・S&P500のサポート・レジスタンス）
-5. 現在の信用残・Need&Greedインデックス水準
-"""
-    gemini_text, sources = call_gemini(g_prompt)
-    save_source_log('投資戦略チーム', sources, gemini_text)
+【手順】
+1. read_knowledge("strategy_patterns") で過去の戦略パターン・フェーズ判定精度を確認
+2. read_past_report("info_gathering", max_chars=1200) で市場環境を把握
+3. read_past_report("analysis", max_chars=1500) で銘柄評価を確認
+4. read_past_report("risk", max_chars=800) でリスク評価を確認
+5. get_screening_data(min_score=6) で現在の銘柄強度を確認
+6. search_market_info で需給・センチメント情報を収集:
+   - "{TODAY} 日本株 機関投資家 需給 外国人売買"
+   - "{TODAY} Put/Call比率 VIX Fear&Greed センチメント"
+7. write_knowledge("strategy_patterns") で今日のフェーズ判定・有効だった戦略を保存
+8. finalize_report でレポートを完成させる
 
-    if IS_MARKET_DAY:
-        strategy_format = f"""# 投資戦略チーム レポート [{DAY_LABEL}]
-日付: {TODAY}
-
-## 市場環境判定: [Attack/Steady/Defend]
-**判定理由**:
-- 根拠1: ...  - 根拠2: ...  - 根拠3: ...
-
-## 需給・センチメント評価
-
-## 新規エントリー候補
-| 銘柄 | コード | エントリー価格 | 損切り | 目標 | RR比 | 推奨サイズ | 根拠 |
-|------|--------|--------------|--------|------|------|-----------|------|
-
-## エントリー見送り理由
-
-## 既存ポジション管理
-
-## 本日のアクションプラン（優先順）
-1. ...
-
-## 来週以降の注目点"""
-    elif DAY_MODE == 'saturday':
-        strategy_format = f"""# 投資戦略チーム レポート [{DAY_LABEL}]
-日付: {TODAY}
-
-## 今週の戦略振り返り
-| 判定 | 予測 | 実際 | 精度 | 学び |
-|------|------|------|------|------|
-| フェーズ | Attack/Steady/Defend | （実際） | ✅/❌ | |
-
-## 今週のエントリー推奨銘柄の実績
-| 銘柄 | 推奨価格 | 今週終値 | 騰落率 | 評価 |
-|------|---------|---------|-------|------|
-
-## 来週のフェーズ予測
-**予測**: [Attack/Steady/Defend]
-**根拠**: ...
-
-## 来週の戦略方針
-（何を重視し、どう行動するか）
-
-## 今週の学び・戦略改善点"""
-    else:  # sunday
-        strategy_format = f"""# 投資戦略チーム レポート [{DAY_LABEL}]
-日付: {TODAY}
-
-## 来週の市場フェーズ判定
-**判定**: [Attack/Steady/Defend]
-**根拠**: 3点以上
-
-## 来週のエントリー計画
-| 銘柄 | コード | エントリー条件 | 損切り | 目標① | RR比 | 優先度 |
-|------|--------|-------------|--------|-------|------|-------|
-
-## 来週のアクションカレンダー
-| 曜日 | 確認事項 | アクション |
-|------|---------|----------|
-
-## 来週の戦略上の注意点
-（避けるべき行動・待つべきシグナル）"""
-
-    prompt = f"""{strategy_feedback}あなたは投資チームの「投資戦略チーム」です。{DAY_LABEL}の戦略レポートを作成してください。
-
-## 情報収集チーム レポート
-{info_report[:1000]}
-
-## 銘柄選定・仮説チーム レポート
-{analysis_report[:1500]}
-
-## リスク管理チーム レポート
-{risk_report[:800]}
-
-## Geminiが収集した情報
-{gemini_text}
-
-## ルールベース自動判定（参考）
-{auto_phase_str}
-※ AIは上記を参考にしつつ、Gemini情報・各チームレポートを総合して最終判定すること
-
-## 判定基準
+【フェーズ判定基準】
 - Attack: 市場トレンド上向き、RS上位銘柄が続々ブレイク、VIX低位安定
 - Steady: トレンド中立、選別的エントリー可能
 - Defend: 市場下落トレンド、現金保有が最優先
 
-## 出力フォーマット
-{strategy_format}
-"""
-    write_report('strategy', call_claude(prompt, max_tokens=5000))
+【レポートフォーマット】
+# 投資戦略チーム レポート [{DAY_LABEL}]
+日付: {TODAY}
+
+## 市場環境判定: [Attack/Steady/Defend]
+**判定理由**（根拠3点以上必須）
+
+## 需給・センチメント評価
+
+## 新規エントリー候補
+| 銘柄 | コード | EP | 損切り | 目標① | RR比 | 推奨サイズ | 根拠 |
+|------|--------|-----|--------|-------|------|-----------|------|
+
+## エントリー見送り理由
+
+## 本日のアクションプラン（優先順）
+
+## 来週以降の注目点"""
+
+    _run_agent_team('strategy', '投資戦略チーム', system, initial, 'strategy')
 
 
 # ─── Team 5: レポート統括 ─────────────────────────────────────────
 def run_daily_report():
+    print(f'  [エージェント起動] レポート統括 ({DAY_LABEL})')
+
+    system = _agent_system_prompt(
+        'レポート統括',
+        '全チームの情報を統合し、投資家が即座に行動できる統合デイリーレポートを作成する。'
+        '各チームレポートの要点を抽出し、矛盾がないか確認する。'
+        '全チーム統合率100%・翌日注目点3件以上・[事実]/[AI分析]ラベル遵守が必須KPI。'
+    )
+
+    # 未生成チームを事前確認
     info = read_report('info_gathering')
     analysis = read_report('analysis')
     risk = read_report('risk')
     strategy = read_report('strategy')
+    missing_teams = [name for name, content in [
+        ('情報収集チーム', info), ('銘柄選定・仮説チーム', analysis),
+        ('リスク管理チーム', risk), ('投資戦略チーム', strategy)
+    ] if not is_generated(content)]
+    missing_notice = f"⚠️ 未生成チーム: {', '.join(missing_teams)}" if missing_teams else "全チームレポート生成済み"
 
-    print(f'  [Gemini] 追加情報収集中... ({DAY_LABEL})')
-    if IS_MARKET_DAY:
-        g_prompt = f"""{TODAY} 以降の投資家が注目すべき情報を収集してください。
+    initial = f"""本日{TODAY}（{DAY_LABEL}）の統合デイリーレポートを作成してください。
 
-1. 明日・今週中に予定されている主要決算発表（日米）
-2. 明日以降の経済指標発表スケジュールと市場予想
-3. 本日の市場引け後に発表されたニュース・決算速報
-4. 明日の日本市場の注目点（先物・ADR動向）
-5. 今週の重要なFRB高官発言予定
-"""
-    elif DAY_MODE == 'saturday':
-        g_prompt = f"""今週の総括と来週の見通しをまとめるための情報を収集してください。
+【状況】{missing_notice}
 
-1. 今週の市場の総括（何が起き、何が重要だったか）
-2. 今週の投資家の注目テーマ（SNS・メディアのトレンド）
-3. 来週の市場を動かしそうな最重要イベント（上位3件）
-4. 今週の機関投資家レポート・アナリスト見解のまとめ
-5. 週末の海外市場動向（米・欧）
-"""
-    else:  # sunday
-        g_prompt = f"""週明けの投資準備に必要な情報を収集してください。
+【手順】
+1. read_knowledge("report_patterns") で過去の統合パターン・品質改善点を確認
+2. 各チームレポートをread_past_reportで読む（既に読み込み済みだが追加詳細は参照可）
+3. search_market_info で翌日・来週の追加注目情報を収集:
+   - "{TODAY} 明日 決算発表 経済指標 スケジュール"
+4. write_knowledge("report_patterns") で今日の統合で気づいた改善点を保存
+5. finalize_report で統合レポートを完成させる（これがlatest_reportにも保存される）
 
-1. 月曜日の日本株に影響する週末の米国・欧州ニュース
-2. 来週の市場カレンダー（最重要イベント上位5件）
-3. 週末の先物・ADR動向
-4. 来週の投資テーマ・注目セクターの予測
-5. 来週の投資家心理（Fear&Greed・プット/コール比率）
-"""
-    gemini_text, sources = call_gemini(g_prompt)
-    save_source_log('レポート統括', sources, gemini_text)
+【各チームレポートサマリー（既取得）】
+■ 情報収集: {info[:600] if is_generated(info) else '（未生成）'}
+■ 銘柄選定: {analysis[:800] if is_generated(analysis) else '（未生成）'}
+■ リスク管理: {risk[:500] if is_generated(risk) else '（未生成）'}
+■ 投資戦略: {strategy[:800] if is_generated(strategy) else '（未生成）'}
 
-    if IS_MARKET_DAY:
-        report_title = f'# 📊 デイリー投資レポート {TODAY}'
-        report_structure = f"""## エグゼクティブサマリー
-（本日の要点を3〜5行で。市場環境判定と最重要アクションを必ず含める）
+【レポートフォーマット】
+# 📊 デイリー投資レポート {TODAY}
+
+## エグゼクティブサマリー
+（3〜5行で要点・市場環境判定・最重要アクション）
 
 ## 市場環境: [Attack/Steady/Defend]
-（指数動向・センチメント・判定理由）
 
-## 本日のアクションプラン
-1. **[最優先]** ...（理由: ...）
-2. ...
+## 本日のアクションプラン（優先順）
+1. **[最優先]** ...
 
 ## 注目銘柄サマリー
 | ランク | 銘柄 | コード | ポイント |
-|--------|------|--------|---------|
 
 ## リスク警戒事項
 
-## 明日以降の注目スケジュール
-（Gemini情報より）
+## 翌日以降の注目スケジュール
 
-## 各チーム詳細"""
-    elif DAY_MODE == 'saturday':
-        report_title = f'# 📊 週次振り返りレポート {TODAY}'
-        report_structure = f"""## 今週のエグゼクティブサマリー
-（今週の市場・戦略・成果を5行以内で総括）
-
-## 今週の市場環境推移
-（Attack/Steady/Defendの変遷と正確性）
-
-## 今週の成果・振り返り
-| 項目 | 予測 | 実際 | 達成度 |
-|------|------|------|-------|
-| フェーズ判定 | | | |
-| Aランク銘柄精度 | | | |
-| リスク管理 | | | |
-
-## 今週の学び（改善すべきこと3点）
-1. ...
-
-## 来週の戦略方針
-
-## 各チームの今週の総評"""
-    else:  # sunday
-        report_title = f'# 📊 翌週準備レポート {TODAY}'
-        report_structure = f"""## 来週のエグゼクティブサマリー
-（来週の市場環境予測と戦略方針を5行以内で）
-
-## 来週の市場フェーズ予測: [Attack/Steady/Defend]
-（根拠3点以上）
-
-## 来週のアクションカレンダー
-| 曜日 | 重要イベント | 対応方針 |
-|------|------------|---------|
-
-## 来週のエントリー計画（優先順）
-（Aランク候補と条件）
-
-## 週明け月曜日のチェックリスト
-（市場開始前に確認すること）
-
-## 各チームの来週方針"""
-
-    # ── Step2: 未生成チームを明示してClaude で統合レポート作成 ──
-    missing_teams = []
-    if not is_generated(info):     missing_teams.append('情報収集チーム')
-    if not is_generated(analysis): missing_teams.append('銘柄選定・仮説チーム')
-    if not is_generated(risk):     missing_teams.append('リスク管理チーム')
-    if not is_generated(strategy): missing_teams.append('投資戦略チーム')
-
-    missing_notice = (
-        f"\n> ⚠️ **本日未生成チーム（{len(missing_teams)}チーム）: {', '.join(missing_teams)}**\n"
-        f"> 該当チームのセクションは「本日未稼働」と明記すること。推測や補完は禁止。\n"
-        if missing_teams else ""
-    )
-
-    prompt = f"""あなたは「レポート統括」です。{DAY_LABEL}の統合レポートを作成してください。
-{missing_notice}
-## 情報収集チーム
-{info[:1500]}
-
-## 銘柄選定・仮説チーム
-{analysis[:2000]}
-
-## リスク管理チーム
-{risk[:1200]}
-
-## 投資戦略チーム
-{strategy[:1500]}
-
-## Geminiが収集した追加情報
-{gemini_text}
-
-## 出力フォーマット（必ずこの形式で）
-{report_title}
-
-{report_structure}
-
-## 各チーム詳細
-### 情報収集チーム
-{'（本日未稼働: データなし）' if not is_generated(info) else '（要約200字以内）'}
-### 銘柄選定・仮説チーム
-{'（本日未稼働: データなし）' if not is_generated(analysis) else '（要約200字以内）'}
-### リスク管理チーム
-{'（本日未稼働: データなし）' if not is_generated(risk) else '（要約200字以内）'}
-### 投資戦略チーム
-{'（本日未稼働: データなし）' if not is_generated(strategy) else '（要約200字以内）'}
+## 各チーム詳細（200字以内で各チームを要約）
 
 ---
-Generated by Investment Team System (Claude + Gemini)
-{LABEL_RULE}"""
-    result = call_claude(prompt, max_tokens=5000)
-    write_report(f'{TODAY}_daily_report', result)
-    write_report('latest_report', result)
+Generated by Investment Team Agent System (Claude + Gemini)"""
+
+    # エージェントが finalize_report を呼ぶと content が返る
+    result = _run_agent_team('report', 'レポート統括', system, initial, f'{TODAY}_daily_report')
+    if result:
+        write_report('latest_report', result)
 
 
 # ─── フェーズ自動判定（ルールベース） ────────────────────────────────
@@ -1636,9 +1531,22 @@ def run_verification():
     hypothesis_checks = []  # 仮説検証結果ログ
     for sim in actives:
         code = str(sim.get('code', ''))
+
+        # ── 重複実行ガード: 同日分のdaily_logがすでに存在する場合はスキップ ──
+        if IS_MARKET_DAY and sim.get('daily_log'):
+            last_log_date = sim['daily_log'][-1].get('date', '')
+            if last_log_date == TODAY:
+                print(f'  [スキップ] {sim.get("name", code)}: 本日分({TODAY})のdaily_log記録済み（重複防止）')
+                remaining.append(sim)
+                continue
+
         current_stock = stocks_by_code.get(code)
         prev_price = sim.get('current_price', sim.get('entry_price'))
-        current_price = current_stock.get('price', prev_price) if current_stock else prev_price
+        # screen_full_results.json のキャッシュ価格を取得後、J-Quantsで最新終値に上書き
+        screen_price = current_stock.get('price', prev_price) if current_stock else prev_price
+        current_price = _fetch_fresh_price(code, screen_price)
+        if current_price != screen_price:
+            print(f'  [価格更新] {sim.get("name", code)}: screen={screen_price} → J-Quants={current_price}')
         entry = sim['entry_price']
         stop = sim['stop_loss']
         target1 = sim['target1']
@@ -2028,50 +1936,53 @@ def run_verification():
 
     write_report('verification', verification_content)
 
+    # 検証チームの知識を蓄積（将来の選定精度向上のため）
+    if IS_MARKET_DAY and (hypothesis_checks or completion_notes):
+        knowledge_entry = f"""### 本日の検証サマリー
+- フェーズ: {market_phase.get('phase', '不明') if market_phase else '不明'}
+- 仮説確認: {'; '.join(hypothesis_checks) if hypothesis_checks else 'なし'}
+- 完了: {'; '.join(completion_notes) if completion_notes else 'なし'}
+- 新規追跡: {'; '.join(new_sim_notes) if new_sim_notes else 'なし'}
+- 累計勝率: {win_rate:.1f}% ({len(wins)}/{len(completed)})"""
+        write_knowledge('verification_patterns', knowledge_entry)
+
 
 # ─── Team 6: セキュリティ ─────────────────────────────────────────
 def run_security():
     import subprocess
+    print(f'  [エージェント起動] セキュリティチーム ({DAY_LABEL})')
+
     git_log = subprocess.run(
         ['git', 'log', '--oneline', '-20'],
         capture_output=True, text=True
     ).stdout
 
-    # ── Step1: Gemini で最新のセキュリティ脅威・脆弱性情報を収集 ──
-    print('  [Gemini] セキュリティ脅威情報収集中...')
-    g_prompt = f"""{TODAY} の最新サイバーセキュリティ・金融システムセキュリティ情報を収集してください。
+    system = _agent_system_prompt(
+        '情報セキュリティチーム',
+        'コードとシステムの安全性を監視し、脅威を早期検知する。'
+        '重大脆弱性（CRITICAL/HIGH）は必ず報告する。'
+        '既知の安全設計: APIキーはVercel環境変数で管理・Gemini APIキーはHTTPヘッダーで送らない（CORS対策）。'
+        f'\n\n【Gitコミット履歴（直近20件）】\n{git_log}'
+    )
 
-1. 金融・投資システムを狙った最新サイバー攻撃・フィッシング事例
-2. Python/GitHub Actions/Vercel に関する最新脆弱性（CVE情報）
-3. APIキー漏洩・クレデンシャル流出に関する最新インシデント事例
-4. 個人投資家を狙った詐欺・セキュリティ被害の最新情報
-5. anthropic/google AI API に関するセキュリティアドバイザリ
-"""
-    gemini_text, sources = call_gemini(g_prompt)
-    save_source_log('セキュリティチーム', sources, gemini_text)
+    initial = f"""本日{TODAY}のセキュリティ監査レポートを作成してください。
 
-    # ── Step2: Claude でコード監査＋レポート作成 ──
-    prompt = f"""あなたは「情報セキュリティチーム」です。本日 {TODAY} のセキュリティ監査を行ってください。
+【手順】
+1. read_knowledge("security_patterns") で過去の脅威パターン・発見を確認
+2. search_market_info で最新のセキュリティ脅威情報を収集:
+   - "{TODAY} Python GitHub Actions Vercel セキュリティ 脆弱性 CVE"
+   - "{TODAY} 金融システム サイバー攻撃 AIapi セキュリティ"
+3. write_knowledge("security_patterns") で今日の脅威情報を保存
+4. finalize_report でレポートを完成させる
 
-## Gitコミット履歴（直近20件）
-{git_log}
+【内部チェック項目】
+- コミットメッセージに key/secret/password/token が含まれていないか
+- index.htmlに外部CDNスクリプトが追加されていないか（プロジェクトルールで禁止）
+- APIキーがハードコードされていないか（sk- / AIza / Bearer パターン）
+- Vercel serverless関数（api/claude.js, api/gemini.js）の実装に問題がないか
+- GitHub Actions workflowにシークレット漏洩リスクがないか
 
-## Geminiが収集した最新セキュリティ脅威情報
-{gemini_text}
-
-## 内部チェック項目
-1. コミットメッセージに `key`, `secret`, `password`, `token` が含まれていないか
-2. index.htmlに外部CDNスクリプトが追加されていないか（プロジェクトルールで禁止）
-3. APIキーがハードコードされていないか（`sk-`, `AIza`, `Bearer`パターン）
-4. Vercel serverless関数（api/claude.js, api/gemini.js）の実装に問題がないか
-5. GitHub Actions workflowにシークレット漏洩リスクがないか
-
-## 既知の安全設計（False Positive除外）
-- APIキーはVercel環境変数で管理（サーバーサイド）
-- Gemini APIキーはHTTPヘッダーで送らない（CORS対策）
-- ANTHROPIC_API_KEY / GEMINI_API はGitHub Secrets + Vercel Env Varsで管理
-
-## 出力フォーマット（必ずこの形式で）
+【レポートフォーマット】
 # 情報セキュリティチーム レポート
 日付: {TODAY}
 
@@ -2086,110 +1997,57 @@ def run_security():
 | Vercelプロキシ | ✅/⚠️/❌ | ... |
 | GitHub Actions | ✅/⚠️/❌ | ... |
 
-## 外部脅威情報（Geminiより）
-（本システムに関連するリスクを抽出して記載）
+## 外部脅威情報（Gemini収集）
 
-## 要対応事項
-（なければ「なし」）
+## 要対応事項（なければ「なし」）
 
-## 推奨事項
-...
-"""
-    write_report('security', call_claude(prompt))
+## 推奨事項"""
+
+    _run_agent_team('security', 'セキュリティチーム', system, initial, 'security')
 
 
 # ─── Team 7: 内部監査 ─────────────────────────────────────────────
 def run_internal_audit():
-    # 各チームのレポートを読む
-    reports = {
-        '情報収集': read_report('info_gathering'),
-        '分析':     read_report('analysis'),
-        'リスク管理': read_report('risk'),
-        '投資戦略': read_report('strategy'),
-        'セキュリティ': read_report('security'),
-        '統括レポート': read_report(f'{TODAY}_daily_report'),
-    }
+    print(f'  [エージェント起動] 内部監査チーム ({DAY_LABEL})')
 
-    # 過去の日次レポートを最大5件取得
-    past_reports = []
-    for p in sorted(REPORT_DIR.glob('*_daily_report.md'), reverse=True):
-        if p.stem != f'{TODAY}_daily_report':
-            past_reports.append(p.read_text(encoding='utf-8')[:500])
-        if len(past_reports) >= 5:
-            break
-    past_str = '\n---\n'.join(past_reports) if past_reports else '（過去レポートなし）'
-
-    # 監査ログを読む（前回の提案フォローアップ用）
+    # 前回監査ログ（フォローアップ用）
     audit_log_path = Path('reports') / 'audit_log.md'
     prev_audit = audit_log_path.read_text(encoding='utf-8')[-2000:] if audit_log_path.exists() else '（初回）'
 
-    reports_str = '\n\n'.join(f'### {name}\n{content[:1000]}' for name, content in reports.items())
-
-    # ── Step1: Gemini で優れた投資チーム運営のベストプラクティスを調査 ──
-    print('  [Gemini] 投資チーム改善情報収集中...')
-    g_prompt = f"""プロの投資チーム（ヘッジファンド・資産運用会社）の運営ベストプラクティスについて調査してください。
-
-1. 優れた株式分析レポートの構成要素・品質基準
-2. ミネルヴィニ流成長株投資における最新の手法・改善点
-3. AIを活用した投資分析の最新事例・ベストプラクティス
-4. 個人投資家がプロに近づくための情報収集・分析手法
-5. 投資チームの意思決定プロセス改善事例
-
-本日 {TODAY} の情報を含めてください。
-"""
-    gemini_text, sources = call_gemini(g_prompt)
-    save_source_log('内部監査チーム', sources, gemini_text)
-
+    # KPI定義を注入
     kpi_definitions = build_kpi_check_prompt()
 
-    prompt = f"""あなたは投資チームの「内部監査チーム」です。本日 {TODAY} の全チームを監査し、KPI達成状況を評価して改善提案を行ってください。
+    system = _agent_system_prompt(
+        '内部監査チーム',
+        '全チームのKPI達成状況を評価し、継続的改善サイクルを推進する。'
+        '評価軸: 網羅性・具体性・有用性・一貫性・連携性・AI活用度（各5段階）。'
+        '全チームに評価スコアを付け、改善提案を優先度高・中で2件以上出すこと。' +
+        f'\n\n{kpi_definitions}' +
+        f'\n\n【前回の監査ログ（フォローアップ用）】\n{prev_audit[:1000]}'
+    )
 
-## 各チームのKPI定義
-{kpi_definitions}
+    initial = f"""本日{TODAY}の内部監査レポートを作成してください。
 
-## 本日の各チームレポート
-{reports_str}
+【手順】
+1. read_knowledge("audit_patterns") で過去の監査発見・改善トレンドを確認
+2. 各チームレポートをread_past_reportで読む:
+   - info_gathering, analysis, risk, strategy（各1500字程度）
+   - security, latest_report（各1000字程度）
+3. get_kpi_history(days=14) でKPIトレンドを確認
+4. search_market_info で投資チームのベストプラクティスを収集:
+   - "ミネルヴィニ 成長株投資 AI分析 ベストプラクティス"
+5. write_knowledge("audit_patterns") で今日の監査発見を保存
+6. finalize_report でレポートを完成させる
 
-## 過去レポートのサマリー（最大5件）
-{past_str}
-
-## 前回の監査ログ（フォローアップ用）
-{prev_audit}
-
-## Geminiが収集した投資チームのベストプラクティス
-{gemini_text}
-
-## 評価観点（各5段階）
-- 網羅性: KPI定義の全項目をカバーしているか
-- 具体性: 数値・銘柄コード・根拠が明記されているか
-- 有用性: 投資判断に実際に役立つ内容か
-- 一貫性: 過去レポートと矛盾がないか
-- 連携性: 前チームの情報を適切に引き継いでいるか
-- AI活用度: Gemini+Claudeの二重確認が有効に機能しているか
-
-## 出力フォーマット（必ずこの形式で）
+【レポートフォーマット（チーム別評価スコアテーブルを必ず含める）】
 # 内部監査チーム レポート
 日付: {TODAY}
 
-## エグゼクティブサマリー
-（最重要発見を3点以内で）
+## エグゼクティブサマリー（最重要発見3点以内）
 
 ## KPI達成状況
 | チーム | KPI項目 | 目標 | 達成状況 | 評価 |
 |--------|---------|------|---------|------|
-| 情報収集 | 必須8項目網羅率 | 100% | XX% | ✅/⚠️/❌ |
-| 情報収集 | データ誤り件数 | 0件 | X件 | ✅/⚠️/❌ |
-| 分析 | 評価銘柄数 | 5銘柄以上 | X銘柄 | ✅/⚠️/❌ |
-| 分析 | 判断理由の具体性 | 根拠3つ以上 | X個 | ✅/⚠️/❌ |
-| リスク管理 | DD許容上限遵守 | -10%以内 | XX% | ✅/⚠️/❌ |
-| リスク管理 | 損切りライン設定率 | 100% | XX% | ✅/⚠️/❌ |
-| 投資戦略 | 平均RR比 | 3.0以上 | X.X | ✅/⚠️/❌ |
-| 投資戦略 | アクションプランの具体性 | 全項目明記 | ✅/❌ | ✅/⚠️/❌ |
-| レポート統括 | 全チーム統合率 | 100% | XX% | ✅/⚠️/❌ |
-| レポート統括 | [事実]/[AI分析]ラベル | 100% | XX% | ✅/⚠️/❌ |
-| セキュリティ | 重大脆弱性未報告 | 0件 | X件 | ✅/⚠️/❌ |
-| 内部監査 | 前回提案フォローアップ | 100% | XX% | ✅/⚠️/❌ |
-（本日評価できないKPIは「-」と記載）
 
 ## チーム別評価スコア
 | チーム | 網羅性 | 具体性 | 有用性 | 一貫性 | 連携性 | AI活用度 | 総合 | 所見 |
@@ -2202,37 +2060,25 @@ def run_internal_audit():
 | セキュリティ | /5 | /5 | /5 | /5 | /5 | /5 | /5 | ... |
 
 ## KPIトレンド分析
-（繰り返し未達成のKPI・改善傾向）
 
 ## 改善提案
 ### 優先度: 高（KPI未達成に直結）
-...
 ### 優先度: 中（品質向上）
-...
 
-## 新チーム・新KPI提案
-（不足機能や追加すべきKPIがあれば）
+## 前回提案のフォローアップ"""
 
-## 前回提案のフォローアップ
-...
-"""
-    result = call_claude(prompt, max_tokens=6000)
-    write_report('internal_audit', result)
+    result = _run_agent_team('audit', '内部監査チーム', system, initial, 'internal_audit')
 
-    # KPIログ: チーム別スコアをJSONで保存（トレンド分析用）
-    # index.html は英語キー・数値（10点満点）を期待するため変換する
+    # KPIログ保存（チーム別スコア → kpi_log.json）
     _TEAM_KEY_MAP = {
-        '情報収集': 'info',
-        '分析': 'analysis', '銘柄選定・仮説': 'analysis',  # 両表記に対応
-        'リスク管理': 'risk',
-        '投資戦略': 'strategy',
-        '統括': 'report', 'レポート統括': 'report',         # 両表記に対応
+        '情報収集': 'info', '分析': 'analysis', '銘柄選定・仮説': 'analysis',
+        'リスク管理': 'risk', '投資戦略': 'strategy',
+        '統括': 'report', 'レポート統括': 'report',
         'セキュリティ': 'security',
-        '検証': 'verification', 'シミュレーション追跡': 'verification',  # 両表記に対応
+        '検証': 'verification', 'シミュレーション追跡': 'verification',
         '内部監査': 'audit',
     }
     def _parse_score(s):
-        """'4/5' → 8.0（10点換算）、数値文字列 → float、その他 → None"""
         s = s.strip()
         if '/' in s:
             try:
@@ -2248,11 +2094,9 @@ def run_internal_audit():
     kpi_scores = {}
     _score_keys = ['coverage', 'specificity', 'usefulness', 'consistency', 'linkage', 'ai_usage']
     for line in result.split('\n'):
-        # "| チーム名 | X | X | X | X | X | X | X |" の行をパース
         parts = [p.strip() for p in line.split('|') if p.strip()]
         if len(parts) < 8:
             continue
-        # 部分一致でチーム名を検索（「銘柄選定・分析」「シミュレーション追跡・検証」等の複合名に対応）
         eng_key = next((v for k, v in _TEAM_KEY_MAP.items() if k in parts[0]), None)
         if not eng_key:
             continue
@@ -2262,7 +2106,6 @@ def run_internal_audit():
                 v = _parse_score(parts[i + 1]) if i + 1 < len(parts) else None
                 if v is not None:
                     scores[name] = v
-            # total（8列目）も数値換算して格納
             total_v = _parse_score(parts[7]) if len(parts) > 7 else None
             if total_v is not None:
                 scores['total'] = total_v
@@ -2270,10 +2113,10 @@ def run_internal_audit():
                 kpi_scores[eng_key] = scores
         except (IndexError, ValueError):
             pass
-    save_kpi_log(kpi_scores)
+    if kpi_scores:
+        save_kpi_log(kpi_scores)
 
     # 監査ログに追記
-    audit_log_path = Path('reports') / 'audit_log.md'
     summary_lines = [l for l in result.split('\n') if l.startswith('- ') or l.startswith('### 優先度')][:10]
     log_entry = f'\n## {TODAY}\n' + '\n'.join(summary_lines) + '\n'
     existing = audit_log_path.read_text(encoding='utf-8') if audit_log_path.exists() else '# 内部監査ログ\n'
@@ -2288,7 +2131,9 @@ def run_hr():
         print('  [人事部] 平日・土曜以外はスキップ')
         return
 
-    # kpi_log.jsonから直近7日分を取得
+    print(f'  [エージェント起動] 人事部 ({DAY_LABEL})')
+
+    # KPIログから直近7日分を計算して渡す
     log_path = REPORT_DIR / 'kpi_log.json'
     kpi_log = []
     if log_path.exists():
@@ -2298,7 +2143,13 @@ def run_hr():
             pass
     recent = kpi_log[-7:] if kpi_log else []
 
-    # チーム別平均スコア計算
+    TEAM_NAMES_JP = {
+        'info': '情報収集チーム', 'analysis': '銘柄選定・仮説チーム',
+        'risk': 'リスク管理チーム', 'strategy': '投資戦略チーム',
+        'report': 'レポート統括', 'verification': 'シミュレーション追跡・検証チーム',
+        'security': 'セキュリティチーム', 'audit': '内部監査チーム',
+    }
+
     team_scores: dict[str, list[float]] = {}
     for entry in recent:
         for t_key, scores in entry.get('teams', {}).items():
@@ -2307,15 +2158,6 @@ def run_hr():
                 team_scores.setdefault(t_key, []).append(avg)
     team_avg = {k: round(sum(v) / len(v), 1) for k, v in team_scores.items()}
     ranked = sorted(team_avg.items(), key=lambda x: x[1], reverse=True)
-
-    # 各チームの日本語名
-    TEAM_NAMES_JP = {
-        'info': '情報収集チーム', 'analysis': '銘柄選定・仮説チーム',
-        'risk': 'リスク管理チーム', 'strategy': '投資戦略チーム',
-        'report': 'レポート統括', 'verification': 'シミュレーション追跡・検証チーム',
-        'security': 'セキュリティチーム', 'audit': '内部監査チーム',
-    }
-
     ranking_str = '\n'.join(
         f'{i+1}位: {TEAM_NAMES_JP.get(k, k)} — {v}点'
         for i, (k, v) in enumerate(ranked)
@@ -2325,57 +2167,43 @@ def run_hr():
     mvp_name = TEAM_NAMES_JP.get(mvp_key, mvp_key)
     mvp_score = ranked[0][1] if ranked else 0
 
-    low_teams = [(TEAM_NAMES_JP.get(k, k), v) for k, v in ranked if v < 6]
-    low_str = '\n'.join(f'- {n}: {s}点' for n, s in low_teams) if low_teams else '（なし）'
+    system = _agent_system_prompt(
+        '人事部（CPO）',
+        '全チームのKPIスコアを評価し、インセンティブ設計と改善指示を行う。'
+        'Phase1目標: 月次+16.7%・勝率50%・PF2.0・DD10%以内。' +
+        f'\n\n【直近7日間のKPIランキング】\n{ranking_str}\n【MVP（暫定）】{mvp_name}（{mvp_score}点）'
+    )
 
-    audit_report = read_report('internal_audit')
-    verification_report = read_report('verification')
+    initial = f"""本日{TODAY}（{DAY_LABEL}）の人事部週次レポートを作成してください。
 
-    prompt = f"""あなたは投資チームの「人事部（CPO）」です。{TODAY}の週次人事評価レポートを作成してください。
+【手順】
+1. read_knowledge("hr_patterns") で過去のKPIトレンド・インセンティブ効果を確認
+2. get_kpi_history(days=14) でKPI推移詳細を確認
+3. read_past_report("internal_audit", max_chars=1000) で監査評価を確認
+4. read_past_report("verification", max_chars=800) でシミュレーション精度を確認
+5. get_simulation_status() で現在の成績を確認
+6. write_knowledge("hr_patterns") で今日のKPIパターン・インセンティブ提案を保存
+7. finalize_report でレポートを完成させる
 
-## 直近7日間のチーム別平均KPIスコア
-{ranking_str}
-
-## MVP（暫定）
-{mvp_name}（{mvp_score}点）
-
-## 要注意チーム（スコア6未満）
-{low_str}
-
-## 内部監査チームの評価サマリー
-{audit_report[:800]}
-
-## 検証チームの精度サマリー
-{verification_report[:600]}
-
-## 出力フォーマット（必ずこの形式で・200行以内）
+【レポートフォーマット（200行以内）】
 # 人事部 週次レポート [{TODAY}]
 
 ## 週次KPIランキング
 | 順位 | チーム | スコア | 前週比 | 評価コメント |
-...
 
-## 今週のMVP
-（チーム名・根拠・他チームへのメッセージ）
+## 今週のMVP（根拠・他チームへのメッセージ）
 
-## 要注意チームへの改善指示
-（チーム名・具体的改善アクション・期限）
+## 要注意チームへの改善指示（チーム名・具体的アクション・期限）
 
 ## 来週のインセンティブ設計
-### 全チームへ（プロンプト冒頭注入用）
-（来週各チームプロンプトに追加する文言）
-
+### 全チームへ（プロンプト冒頭注入用メッセージ）
 ### MVP特別指示
-（MVPチームに来週追加する難度高いタスク）
 
-## 組織KGI達成状況
-（Phase1: 月次+16.7%・勝率50%・PF2.0・DD10%以内 の現状評価）
+## 組織KGI達成状況（Phase1: 月次+16.7%・勝率50%・PF2.0・DD10%以内）
 
-## 来週の重点目標
-（全組織で重点的に取り組む1〜2項目）
-"""
-    result = call_claude(prompt, max_tokens=4000)
-    write_report('hr_report', result)
+## 来週の重点目標（1〜2項目）"""
+
+    result = _run_agent_team('hr', '人事部', system, initial, 'hr_report')
     print(f'  -> hr_report.md 更新 (MVP: {mvp_name} {mvp_score}点)')
 
 
