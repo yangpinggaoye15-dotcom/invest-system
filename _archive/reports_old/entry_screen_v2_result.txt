@@ -1,0 +1,98 @@
+処理完了: 442/442  skip=12
+
+=== 【全条件クリア】gap<5% + OBV15日<1.0 + RS50w>1.3 + 7/7: 69銘柄 ===
+Code   Name                       Price  gap%  OBV15  RS50w  ret10   std   ★
+--------------------------------------------------------------------------------
+3593   HOGY MEDICAL CO.,LTD.      6,650 -0.4%   0.17   1.39  -0.2%  0.10  ★★
+4384   RAKSUL INC.                1,887 -2.5%   0.21   1.89  -0.4%  0.15  ★★
+2641   Global X Japan Global      4,343  2.0%   0.32   1.36   2.0%  1.79  ★★
+4196   NEO MARKETING Inc.         1,446  4.9%   0.59   1.35   1.6%  0.97  ★★
+2559   MAXIS World Equity (MS    27,060  2.4%   0.65   1.32   4.6%  1.46  ★★
+4530   HISAMITSU PHARMACEUTIC     6,045 -1.4%   0.65   1.50   0.2%  0.07  ★★
+3076   Ai Holdings Corporatio     2,798  0.1%   0.67   1.38  -0.2%  1.60  ★★
+2296   ITOHAM YONEKYU HOLDING     5,650 -6.5%   0.68   1.37  -6.0%  1.47  ★★
+3003   Hulic Co.,Ltd.             1,882 -2.1%   0.70   1.33   1.2%  1.46  ★★
+2625   iFreeETF TOPIX (Quarte     3,755  1.1%   0.72   1.39   2.6%  1.98  ★★
+2914   JAPAN TOBACCO INC.         5,973  1.2%   0.74   1.45  -0.1%  1.37  ★★
+3241   WILL,Co.,Ltd.                591  1.4%   0.77   1.32   0.7%  1.15  ★★
+3096   OCEAN SYSTEM CORPORATI     1,681 -1.7%   0.85   1.44  -3.3%  1.24  ★★
+2705   OOTOYA Holdings Co.,Lt     6,930 -0.7%   0.87   1.37   1.9%  1.58  ★★
+3987   Ecomott Inc.                 513  1.1%   0.98   1.31   2.6%  1.04  ★★
+2553   One ETF Southern China     2,440  0.1%   0.34   1.46   4.3%  2.25   ★
+4379   Photosynth inc.              466  4.5%   0.34   1.46  -4.9%  5.92   ★
+2782   Seria Co.,Ltd.             3,370 -16.4%   0.43   1.38 -15.9%  2.80   ★
+3467   Agratio urban design I     2,502 -7.2%   0.46   1.48  -9.7%  2.07   ★
+4125   SANWAYUKA INDUSTRY COR     3,075  3.3%   0.49   2.16  -8.1%  4.18   ★
+3236   PROPERST CO.,LTD.            363 -2.5%   0.50   2.07   2.5%  3.44   ★
+4231   TIGERS POLYMER CORPORA     1,043 -5.5%   0.53   1.48   0.4%  2.59   ★
+4471   SANYO CHEMICAL INDUSTR     5,220 -4.4%   0.53   1.36   1.4%  2.32   ★
+2612   KADOYA SESAME MILLS IN     1,588 -0.5%   0.55   1.33 -10.3%  2.67   ★
+3927   Fuva Brain Limited         1,046  3.9%   0.57   1.62 -17.6%  4.10   ★
+4263   SUSMED,Inc.                  918 -7.9%   0.57   1.60  -9.0%  4.71   ★
+3392   DELICA FOODS HOLDINGS        879 -2.2%   0.58   1.75  -9.3%  2.51   ★
+2588   Premium Water Holdings     3,745 -1.6%   0.61   1.33  -6.7%  2.24   ★
+3563   FOOD & LIFE COMPANIES      9,588  2.1%   0.61   2.15  -1.7%  2.36   ★
+2180   SUNNY SIDE UP GROUP In       943 -0.4%   0.64   1.79   4.4%  2.67   ★
+4286   CL Holdings Inc.           1,068 -1.4%   0.65   1.34   0.0%  3.76   ★
+4386   SIG Group Co.,Ltd.           880 -7.8%   0.66   1.34  -8.2%  2.02   ★
+3097   The Monogatari Corpora     4,470 -6.0%   0.70   1.36  -7.2%  2.04   ★
+3447   Shinwa Co.,Ltd.            1,003 -1.9%   0.71   1.37  -1.9%  2.36   ★
+4228   Sekisui Kasei Co.,Ltd.       460 -2.4%   0.71   1.31   2.0%  4.07   ★
+4112   Hodogaya Chemical Co.,     2,298 -1.8%   0.72   1.47  -1.2%  2.73   ★
+253A   ETS Group Co.,Ltd.         1,235 -1.4%   0.73   1.85   2.5%  4.34   ★
+3656   KLab Inc.                    312 -8.2%   0.73   2.31  -3.7%  4.25   ★
+4098   Titan Kogyo ,Ltd.          1,076 -5.1%   0.73   1.41  -8.4%  7.20   ★
+300A   MIC Co.,Ltd.               2,928  2.2%   0.74   1.71   3.0%  2.39   ★
+3153   Yashima Denki Co.,Ltd.     3,140 -2.3%   0.74   1.90   3.5%  3.04   ★
+2112   Ensuiko Sugar Refining       524 -5.2%   0.76   1.61  -3.9%  2.30   ★
+4578   Otsuka Holdings Co.,Lt    10,650  1.9%   0.76   1.40  -6.6%  2.03   ★
+3513   ICHIKAWA CO.,LTD.          3,820  4.7%   0.78   2.01   2.7%  3.36   ★
+2737   TOMEN DEVICES CORPORAT    12,100 -3.2%   0.83   2.16  -3.3%  3.63   ★
+3399   Maruchiyo Yamaokaya Co     3,535 -1.5%   0.83   2.10   0.4%  3.24   ★
+4064   Nippon Carbide Industr     2,782 -1.7%   0.83   1.57   3.0%  2.63   ★
+3446   JTEC CORPORATION           2,020  4.1%   0.85   1.71   1.6%  4.56   ★
+3106   KURABO INDUSTRIES LTD.     9,340  0.4%   0.87   1.56   4.0%  3.39   ★
+2986   LA Holdings Co.,Ltd.       9,140 -4.0%   0.88   1.35  -1.5%  2.51   ★
+3036   ALCONIX CORPORATION        2,663 -7.4%   0.88   1.74  -5.6%  2.94   ★
+4116   Dainichiseika Color &      1,106 -3.7%   0.89   1.48  -2.0%  2.14   ★
+4026   Konoshima Chemical Co.     1,917  4.6%   0.90   1.32  -2.8%  3.27   ★
+2892   NIHON SHOKUHIN KAKO CO     3,810 -1.0%   0.92   1.45   0.7%  2.03   ★
+3321   MITACHI CO.,LTD.           1,884 -11.2%   0.92   1.62  -6.2%  2.90   ★
+4220   RIKEN TECHNOS CORPORAT     1,767  1.8%   0.93   1.72   2.4%  2.43   ★
+4507   Shionogi & Co.,Ltd.        3,371 -2.7%   0.93   1.50  -4.1%  2.27   ★
+2568   Listed Index Fund US E     6,856  3.1%   0.94   1.37   5.4%  1.49   ★
+3551   DYNIC CORPORATION          1,080 -7.3%   0.96   1.44  -4.0%  2.03   ★
+2520   NEXT FUNDS Emerging Ma     2,139  3.5%   0.30   1.48   7.1%  2.40    
+2854   Global X Japan Tech To     2,161  4.1%   0.65   1.48   7.4%  2.79    
+4261   AsiaQuest Co.,Ltd.         3,765  0.6%   0.67   1.54   5.9%  2.14    
+315A   Global X Japan Bank Hi     1,580  2.4%   0.70   1.53   7.3%  2.89    
+2867   Global X Autonomous &      1,636  4.5%   0.75   1.67   6.4%  2.26    
+3443   KAWADA TECHNOLOGIES,IN     1,674  1.7%   0.80   1.72   5.4%  2.66    
+224A   Global X Uranium ETF       1,859  0.1%   0.84   2.38   6.8%  3.43    
+3105   Nisshinbo Holdings Inc     1,647  3.4%   0.91   1.83   8.0%  2.72    
+2624   iFreeETF Nikkei225 (Qu     5,709  3.3%   0.93   1.58   6.3%  2.45    
+3186   NEXTAGE Co.,Ltd.           3,495  3.6%   0.96   2.21   6.2%  4.29    
+
+=== 【参考】gap<5% + RS50w>1.3 だがOBV>=1.0: 76銘柄 ===
+Code   Name                       Price  gap%  OBV15  RS50w  ret10
+----------------------------------------------------------------------
+2469   Hibino Corporation         3,685 -1.6%   1.00   1.64  -5.6%
+3185   DREAM VISION CO.,LTD.        220 -3.8%   1.01   1.71  -2.7%
+2017   iFreeETF JPX Prime 150     1,375  0.6%   1.03   1.33   1.1%
+2410   CAREER DESIGN CENTER C     2,443 -0.6%   1.03   1.39  -0.5%
+328A   Global X Japan Pricing     1,356 -0.7%   1.04   1.34   1.7%
+3023   Rasa Corporation           1,963 -7.0%   1.05   1.35  -0.8%
+4440   WITZ Corporation           1,560  3.4%   1.06   1.61   1.2%
+2080   PBR Improvement over 1     1,823  1.9%   1.07   1.50   3.8%
+3101   TOYOBO CO.,LTD.            1,478 -0.2%   1.07   1.57   6.3%
+2579   Coca-Cola Bottlers Jap     3,613 -4.2%   1.11   1.52  -1.1%
+4385   Mercari,Inc.               3,613  2.4%   1.12   1.57  -4.0%
+2084   NEXT FUNDS Japan High      3,480  1.5%   1.13   1.54   3.6%
+3123   SAIBO Co.,Ltd.               631 -4.4%   1.13   1.33  -2.8%
+4516   Nippon Shinyaku Co.,Lt     5,152  0.1%   1.13   1.40  -4.0%
+4109   STELLA CHEMIFA CORPORA     5,070 -2.3%   1.15   1.32  -1.6%
+4246   DaikyoNishikawa Corpor       870 -0.3%   1.15   1.46   0.9%
+4415   BROAD ENTERPRISE CO.,L     1,298  1.8%   1.18   1.85   9.8%
+4318   QUICK CO.,LTD.               857 -2.4%   1.19   1.34  -1.5%
+2354   YE DIGITAL Corporation       831  3.8%   1.20   1.34   4.9%
+2009   THE TORIGOE CO.,LTD.       1,103  1.4%   1.23   1.33   0.3%

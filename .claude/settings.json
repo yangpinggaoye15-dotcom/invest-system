@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": [
+      "Bash(git:*)",
+      "Bash(python:*)",
+      "Bash(powershell:*)",
+      "Bash(pip:*)",
+      "Read(**)",
+      "Edit(**)",
+      "Write(**)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/secrets*)",
+      "Read(**/*apikey*)",
+      "Read(**/*api_key*)"
+    ]
+  }
+}

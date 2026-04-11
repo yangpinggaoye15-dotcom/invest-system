@@ -1,0 +1,43 @@
+[2026-04-10 10:37:08] === 動作テスト開始 ===
+[2026-04-10 10:37:08] BASE_DIR : C:\Users\yohei\Documents\invest-system-github
+[2026-04-10 10:37:08] CONFIG   : C:\Users\yohei\Documents\invest-system-github\monitor_config.json
+[2026-04-10 10:37:08] GMAIL    : 未設定
+[2026-04-10 10:37:08] NOTIFY_TO: 未設定
+[2026-04-10 10:37:08] JQUANTS  : 未設定
+[2026-04-10 10:37:34] === 動作テスト開始 ===
+[2026-04-10 10:37:34] BASE_DIR : C:\Users\yohei\Documents\invest-system-github
+[2026-04-10 10:37:34] CONFIG   : C:\Users\yohei\Documents\invest-system-github\monitor_config.json
+[2026-04-10 10:37:34] GMAIL    : yangpinggaoye15@gmail.com
+[2026-04-10 10:37:34] NOTIFY_TO: yangpinggaoye15@gmail.com
+[2026-04-10 10:37:34] JQUANTS  : 設定済み
+[2026-04-10 10:37:37] ✉️ 送信完了: 📊【通知】監視システム 動作テスト
+[2026-04-10 10:37:37] === テスト完了 ===
+[2026-04-10 11:00:02] === 株価チェック開始 ===
+[2026-04-10 11:00:02] === ニュースチェック開始 ===
+[2026-04-10 11:00:04] 価格取得エラー 5803 (20260410): 400 Client Error: Bad Request for url: https://api.jquants.com/v1/token/auth_refresh?refreshToken=2wZ_JIyPtkOWg8T-uwnbVuu3w8egibrrgfqYK-0PkGU
+[2026-04-10 11:00:05] 価格取得エラー 5803 (20260409): 400 Client Error: Bad Request for url: https://api.jquants.com/v1/token/auth_refresh?refreshToken=2wZ_JIyPtkOWg8T-uwnbVuu3w8egibrrgfqYK-0PkGU
+[2026-04-10 11:00:06] 価格取得エラー 5803 (20260408): 400 Client Error: Bad Request for url: https://api.jquants.com/v1/token/auth_refresh?refreshToken=2wZ_JIyPtkOWg8T-uwnbVuu3w8egibrrgfqYK-0PkGU
+[2026-04-10 11:00:07] 価格取得エラー 5803 (20260407): 400 Client Error: Bad Request for url: https://api.jquants.com/v1/token/auth_refresh?refreshToken=2wZ_JIyPtkOWg8T-uwnbVuu3w8egibrrgfqYK-0PkGU
+[2026-04-10 11:00:10] ✉️ 送信完了: 📊【通知】株価レポート
+[2026-04-10 11:00:10] === 株価チェック完了 ===
+[2026-04-10 11:00:26] ✉️ 送信完了: 📊【通知】ニュースレポート
+[2026-04-10 11:00:28] ✉️ 送信完了: 🚨【緊急】緊急ニュースアラート — 買い根拠への影響を確認
+[2026-04-10 11:00:28] === ニュースチェック完了 ===
+[2026-04-10 12:00:02] === 株価チェック開始 ===
+[2026-04-10 12:00:04] 価格取得エラー 5803 (20260410): 400 Client Error: Bad Request for url: https://api.jquants.com/v1/token/auth_refresh?refreshToken=2wZ_JIyPtkOWg8T-uwnbVuu3w8egibrrgfqYK-0PkGU
+[2026-04-10 12:00:06] 価格取得エラー 5803 (20260409): 400 Client Error: Bad Request for url: https://api.jquants.com/v1/token/auth_refresh?refreshToken=2wZ_JIyPtkOWg8T-uwnbVuu3w8egibrrgfqYK-0PkGU
+[2026-04-10 12:00:08] 価格取得エラー 5803 (20260408): 400 Client Error: Bad Request for url: https://api.jquants.com/v1/token/auth_refresh?refreshToken=2wZ_JIyPtkOWg8T-uwnbVuu3w8egibrrgfqYK-0PkGU
+[2026-04-10 12:00:10] 価格取得エラー 5803 (20260407): 400 Client Error: Bad Request for url: https://api.jquants.com/v1/token/auth_refresh?refreshToken=2wZ_JIyPtkOWg8T-uwnbVuu3w8egibrrgfqYK-0PkGU
+[2026-04-10 12:00:12] ✉️ 送信完了: 📊【通知】株価レポート
+[2026-04-10 12:00:12] === 株価チェック完了 ===
+[2026-04-10 15:00:08] === 株価チェック開始 ===
+ ===
+[2026-04-10 15:00:09] 価格取得エラー 5803 (20260410): 400 Client Error: Bad Request for url: https://api.jquants.com/v1/token/auth_refresh?refreshToken=2wZ_JIyPtkOWg8T-uwnbVuu3w8egibrrgfqYK-0PkGU
+[2026-04-10 15:00:10] 価格取得エラー 5803 (20260409): 400 Client Error: Bad Request for url: https://api.jquants.com/v1/token/auth_refresh?refreshToken=2wZ_JIyPtkOWg8T-uwnbVuu3w8egibrrgfqYK-0PkGU
+[2026-04-10 15:00:11] 価格取得エラー 5803 (20260408): 400 Client Error: Bad Request for url: https://api.jquants.com/v1/token/auth_refresh?refreshToken=2wZ_JIyPtkOWg8T-uwnbVuu3w8egibrrgfqYK-0PkGU
+[2026-04-10 15:00:11] 価格取得エラー 5803 (20260407): 400 Client Error: Bad Request for url: https://api.jquants.com/v1/token/auth_refresh?refreshToken=2wZ_JIyPtkOWg8T-uwnbVuu3w8egibrrgfqYK-0PkGU
+[2026-04-10 15:00:13] ✉️ 送信完了: 📊【通知】株価レポート
+[2026-04-10 15:00:13] === 株価チェック完了 ===
+[2026-04-10 15:00:32] ✉️ 送信完了: 📊【通知】ニュースレポート
+[2026-04-10 15:00:34] ✉️ 送信完了: 🚨【緊急】緊急ニュースアラート — 買い根拠への影響を確認
+[2026-04-10 15:00:34] === ニュースチェック完了 ===

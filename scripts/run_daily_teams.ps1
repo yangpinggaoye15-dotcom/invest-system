@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 $BASE   = "C:\Users\yohei\Documents\invest-system-github"
 $DATA   = "C:\Users\yohei\Documents\invest-data"
 $PYTHON = "C:\Users\yohei\AppData\Local\Python\bin\python.exe"
-$LOG    = "$BASE\logs\teams_$(Get-Date -Format 'yyyyMMdd').log"
+$LOG    = "$BASE\logs\teams_$(Get-Date -Format 'yyyyMMdd_HHmm').log"
 
 New-Item -ItemType Directory -Force -Path "$BASE\logs" | Out-Null
 

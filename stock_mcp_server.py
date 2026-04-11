@@ -241,12 +241,12 @@ def _fetch_daily_yf(code_4: str) -> list:
         return []
 
 
-def _fetch_daily(code_4: str) -> list:
-    """Fetch ~400 days of daily OHLCV from J-Quants V2.
+def _fetch_daily(code_4: str, days: int = 2000) -> list:
+    """Fetch daily OHLCV from J-Quants V2. Standard plan supports ~5+ years.
     失敗時は yfinance にフォールバック（15分遅延）。
-    400日 ≈ 57週 → 週足RS n=50w (250日相当) の計算に十分"""
+    2000日 ≈ 5.5年 → 中長期トレンド分析に対応"""
     code_5    = code_4 + "0"
-    date_from = (datetime.now() - timedelta(days=400)).strftime("%Y%m%d")
+    date_from = (datetime.now() - timedelta(days=days)).strftime("%Y%m%d")
     date_to   = datetime.now().strftime("%Y%m%d")
     url = (f"https://api.jquants.com/v2/equities/bars/daily"
            f"?code={code_5}&from={date_from}&to={date_to}")

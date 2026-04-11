@@ -1,0 +1,146 @@
+スクリーニング完了: 442銘柄処理  skip=0  最終日: 2026-04-08
+
+========================================================================
+① 【全条件クリア】gap 0〜5% + OBV15日<1.0 + RS50w>1.3 + 7/7: 53銘柄
+========================================================================
+Code   Name                         Price  gap%  OBV15  RS50w  ret10   std ★
+--------------------------------------------------------------------------------
+2254   Global X China Electric      1,239 +1.9%   0.24   1.33  -1.1%  1.54 ★★
+2641   Global X Japan Global Le     4,405 +3.7%   0.30   1.39  +4.9%  1.75 ★★
+2625   iFreeETF TOPIX (Quarterl     3,830 +3.3%   0.54   1.39  +4.6%  1.82 ★★
+2892   NIHON SHOKUHIN KAKO CO.,     3,920 +1.6%   0.58   1.48  +2.6%  1.86 ★★
+2705   OOTOYA Holdings Co.,Ltd.     7,050 +1.3%   0.59   1.39  -0.8%  1.54 ★★
+2559   MAXIS World Equity (MSCI    26,850 +1.7%   0.61   1.33  +3.1%  1.36 ★★
+3076   Ai Holdings Corporation      2,872 +2.9%   0.61   1.38  +0.9%  1.58 ★★
+2568   Listed Index Fund US Equ     6,775 +1.8%   0.63   1.39  +2.9%  1.35 ★★
+3003   Hulic Co.,Ltd.               1,930 +0.6%   0.64   1.34  +3.6%  1.49 ★★
+2085   MAXIS High Dividend Japa       760 +2.0%   0.68   1.33  +3.4%  1.71 ★★
+2513   NEXT FUNDS International     3,225 +1.4%   0.72   1.32  +3.2%  1.18 ★★
+4196   NEO MARKETING Inc.           1,427 +4.2%   0.73   1.32  +0.1%  0.98 ★★
+3097   The Monogatari Corporati     4,835 +2.0%   0.74   1.43  -0.4%  1.82 ★★
+3987   Ecomott Inc.                   520 +2.6%   0.74   1.32  +3.8%  1.09 ★★
+2410   CAREER DESIGN CENTER CO.     2,489 +1.2%   0.82   1.39  +1.1%  1.14 ★★
+4577   Daito Pharmaceutical Co.     1,444 +1.4%   0.87   1.32  -2.4%  1.96 ★★
+2914   JAPAN TOBACCO INC.           6,081 +3.4%   0.91   1.48  +2.2%  1.47 ★★
+2084   NEXT FUNDS Japan High Di     3,485 +2.0%   0.92   1.50  +3.3%  1.56 ★★
+4528   ONO PHARMACEUTICAL CO.,L     2,546 +3.0%   0.92   1.59  +3.5%  1.71 ★★
+4502   Takeda Pharmaceutical Co     5,789 +2.6%   0.96   1.31  -0.5%  1.77 ★★
+235A   Global X Japan High Divi     1,409 +3.4%   0.98   1.37  +4.4%  1.54 ★★
+2017   iFreeETF JPX Prime 150       1,403 +2.7%   0.99   1.36  +3.5%  1.62 ★★
+328A   Global X Japan Pricing P     1,384 +1.6%   0.99   1.35  +2.7%  1.83 ★★
+2520   NEXT FUNDS Emerging Mark     2,117 +2.6%   0.29   1.46  +4.2%  2.18 ★
+3392   DELICA FOODS HOLDINGS CO       907 +0.8%   0.39   1.80  -5.6%  4.05 ★
+224A   Global X Uranium ETF         1,877 +0.7%   0.57   2.41  +4.9%  3.38 ★
+3563   FOOD & LIFE COMPANIES LT     9,634 +2.9%   0.58   2.16  -4.1%  2.38 ★
+2612   KADOYA SESAME MILLS INCO     1,616 +2.0%   0.59   1.35  -4.9%  2.60 ★
+4112   Hodogaya Chemical Co.,Lt     2,354 +0.6%   0.63   1.51  +1.3%  2.85 ★
+2867   Global X Autonomous & EV     1,619 +3.4%   0.64   1.64  +4.9%  2.06 ★
+3447   Shinwa Co.,Ltd.              1,038 +1.8%   0.64   1.39  +0.5%  2.27 ★
+2180   SUNNY SIDE UP GROUP Inc.       949 +0.5%   0.66   1.79  +1.3%  2.50 ★
+253A   ETS Group Co.,Ltd.           1,266 +1.4%   0.67   1.91  +2.6%  4.15 ★
+3443   KAWADA TECHNOLOGIES,INC.     1,644 +0.0%   0.71   1.70  +2.6%  2.57 ★
+348A   MAXIS Yomiuri333 Japan S       280 +3.6%   0.71   1.44  +5.4%  1.72 ★
+3513   ICHIKAWA CO.,LTD.            3,795 +4.4%   0.74   2.00  -1.2%  3.54 ★
+2469   Hibino Corporation           3,790 +1.8%   0.75   1.58  -4.3%  2.85 ★
+2737   TOMEN DEVICES CORPORATIO    12,930 +2.9%   0.76   2.31  -0.8%  3.17 ★
+2588   Premium Water Holdings,I     3,790 +0.0%   0.79   1.33  -9.2%  2.20 ★
+3106   KURABO INDUSTRIES LTD.       9,480 +2.1%   0.79   1.59  +4.5%  3.33 ★
+3566   UNIFORM NEXT CO.,LTD.          723 +3.3%   0.86   1.44  +6.3%  1.70 ★
+4516   Nippon Shinyaku Co.,Ltd.     5,294 +2.7%   0.88   1.39  +1.2%  3.00 ★
+3399   Maruchiyo Yamaokaya Corp     3,700 +3.6%   0.91   2.07  +1.4%  4.04 ★
+2644   Global X Japan Semicondu     3,350 +4.8%   0.49   2.15  +6.2%  3.00   
+2854   Global X Japan Tech Top      2,159 +4.2%   0.52   1.48  +6.6%  2.38   
+4100   TODA KOGYO CORP.             1,487 +4.5%   0.57   1.32  +8.4%  3.57   
+4286   CL Holdings Inc.             1,121 +3.5%   0.63   1.38  +5.8%  3.79   
+315A   Global X Japan Bank High     1,600 +3.9%   0.66   1.54  +8.3%  2.96   
+2624   iFreeETF Nikkei225 (Quar     5,705 +3.4%   0.71   1.58  +5.7%  2.13   
+4261   AsiaQuest Co.,Ltd.           3,815 +1.6%   0.74   1.53  +5.2%  2.16   
+2080   PBR Improvement over 1x      1,848 +3.6%   0.80   1.50  +5.8%  2.01   
+3105   Nisshinbo Holdings Inc.      1,653 +4.4%   0.85   1.82  +6.5%  2.46   
+3101   TOYOBO CO.,LTD.              1,481 +0.3%   0.90   1.57  +6.2%  3.01   
+
+========================================================================
+② 【SMA50直下 -3〜0%】OBV15日<1.0 + RS50w>1.3（押し目候補）: 54銘柄
+========================================================================
+Code   Name                         Price  gap%  OBV15  RS50w  ret10
+--------------------------------------------------------------------
+3593   HOGY MEDICAL CO.,LTD.        6,650 -0.4%   0.17   1.39  +0.0%
+4384   RAKSUL INC.                  1,886 -2.7%   0.25   1.87  -0.1%
+4379   Photosynth inc.                505 +13.9%   0.29   1.62  -2.1%
+3104   Fujibo Holdings,Inc.         3,625 +5.5%   0.32   2.21  -1.3%
+3236   PROPERST CO.,LTD.              365 -2.1%   0.37   2.07  +1.4%
+3221   Yossix Holdings Co.,Ltd.     3,595 +5.3%   0.40   1.32  +5.7%
+4125   SANWAYUKA INDUSTRY CORPO     3,225 +9.0%   0.42   2.14  +8.0%
+346A   NEXT FUNDS S&P 500 Semic     3,735 +6.0%   0.43   2.09  +5.7%
+2264   MORINAGA MILK INDUSTRY C     4,957 +8.3%   0.46   1.59  +0.8%
+3927   Fuva Brain Limited           1,068 +7.0%   0.46   1.58 -13.4%
+282A   Global X Japan Semicondu     1,877 +5.5%   0.47   2.24  +7.0%
+3964   AUCNET INC.                  1,300 +11.8%   0.51   2.13  +5.4%
+4186   TOKYO OHKA KOGYO CO.,LTD     8,746 +7.0%   0.53   2.82  +3.5%
+4530   HISAMITSU PHARMACEUTICAL     6,042 -1.7%   0.53   1.49  +0.1%
+221A   MAXIS Nikkei Semiconduct       886 +8.8%   0.55   2.33  +7.7%
+200A   NEXT FUNDS Nikkei Semico     3,373 +8.2%   0.58   2.40  +7.9%
+2553   One ETF Southern China A     2,403 -1.6%   0.59   1.46  +2.5%
+2243   Global X Semiconductor E     3,147 +6.6%   0.63   2.10  +5.0%
+3110   NITTO BOSEKI CO.,LTD.       24,850 +20.9%   0.63   5.97 +11.1%
+3891   NIPPON KODOSHI CORPORATI     4,100 +8.7%   0.63   2.36  +6.4%
+285A   Kioxia Holdings Corporat    27,600 +31.9%   0.64  11.56 +23.0%
+3153   Yashima Denki Co.,Ltd.       3,165 -1.5%   0.66   1.93  +3.9%
+4368   FUSO CHEMICAL CO.,LTD.       3,040 +5.7%   0.66   2.65  +0.7%
+4216   ASAHI YUKIZAI CORPORATIO     5,860 +7.4%   0.67   1.62  +2.6%
+4274   HOSOYA PYRO-ENGINEERING      1,426 +5.1%   0.68   1.34  +0.0%
+2286   Hayashikane Sangyo Co.,L       943 +8.5%   0.72   1.92  -5.3%
+3186   NEXTAGE Co.,Ltd.             3,665 +8.8%   0.72   2.42 +17.1%
+4064   Nippon Carbide Industrie     2,792 -1.1%   0.73   1.54  +2.6%
+4098   Titan Kogyo ,Ltd.            1,112 -2.9%   0.73   1.46 -14.3%
+4062   IBIDEN CO.,LTD.              9,794 +17.8%   0.74   4.91 +15.5%
+2112   Ensuiko Sugar Refining C       541 -2.5%   0.75   1.66  -1.8%
+3021   Pacific Net Co.,Ltd.         2,361 +6.6%   0.75   1.80  +4.7%
+3446   JTEC CORPORATION             2,119 +10.9%   0.75   1.73  +5.4%
+213A   Listed Index Fund Nikkei       312 +8.7%   0.76   2.43  +8.4%
+300A   MIC Co.,Ltd.                 2,820 -1.9%   0.78   1.53  +0.1%
+4116   Dainichiseika Color & Ch     1,128 -1.7%   0.78   1.50  +0.0%
+3673   Broadleaf Co.,Ltd.           1,009 +26.9%   0.79   1.47  -2.9%
+3449   TECHNOFLEX CORPORATION       2,699 +11.1%   0.80   2.39  -1.3%
+319A   Next Generation Technolo    12,480 +7.4%   0.81   2.80  -4.0%
+4099   SHIKOKU KASEI HOLDINGS C     5,120 +9.4%   0.81   2.79  +7.0%
+4182   Mitsubishi Gas Chemical      4,217 +7.3%   0.81   1.81  +4.3%
+2083   NEXT FUNDS Japan Growth      3,281 +5.4%   0.83   1.57  +5.4%
+2986   LA Holdings Co.,Ltd.         9,280 -2.6%   0.83   1.35  -0.4%
+2060   FEED ONE CO.,LTD.            1,192 -1.4%   0.87   1.37  -2.0%
+2802   Ajinomoto Co.,Inc.           4,776 +9.8%   0.90   1.61  +6.6%
+2837   Global X Japan Mid & Sma     3,460 +8.2%   0.90   1.55  +9.8%
+4220   RIKEN TECHNOS CORPORATIO     1,815 +5.0%   0.90   1.74  +5.6%
+2195   AMITA HOLDINGS CO.,LTD.        452 +19.8%   0.92   1.38 +25.2%
+4519   CHUGAI PHARMACEUTICAL CO     8,883 -2.8%   0.93   1.31  +5.0%
+2847   Global X Japan New Growt     2,785 +5.6%   0.96   1.53  +7.2%
+4337   PIA CORPORATION              3,520 +17.8%   0.96   1.33 +10.3%
+4578   Otsuka Holdings Co.,Ltd.    11,050 +6.4%   0.96   1.43  +0.7%
+4004   Resonac Holdings Corpora    12,770 +20.0%   0.98   4.31 +18.5%
+2646   Global X Japan Metal Bus     3,937 +7.7%   0.99   2.42  +9.4%
+
+========================================================================
+③ 【参考】gap 0〜5% + RS50w>1.3 だがOBV>=1.0: 40銘柄
+========================================================================
+Code   Name                         Price  gap%  OBV15  RS50w
+--------------------------------------------------------------
+4318   QUICK CO.,LTD.                 892 +1.4%   1.00   1.40
+4415   BROAD ENTERPRISE CO.,LTD     1,286 +1.0%   1.04   1.80
+4275   Carlit Co.,Ltd.              2,660 +2.0%   1.07   2.51
+4360   MANAC Chemical Partners        988 +1.1%   1.08   1.70
+3422   J-MAX Co.,Ltd.                 438 +1.1%   1.10   1.38
+4246   DaikyoNishikawa Corporat       894 +2.6%   1.10   1.49
+2557   SMDAM TOPIX ETF              3,820 +2.4%   1.13   1.40
+4440   WITZ Corporation             1,581 +4.7%   1.14   1.58
+4507   Shionogi & Co.,Ltd.          3,606 +4.5%   1.14   1.61
+2385   Soiken Holdings Inc.           258 +3.1%   1.18   1.76
+4078   Sakai Chemical Industry      3,740 +2.4%   1.18   1.38
+4021   Nissan Chemical Corporat     6,418 +3.1%   1.20   1.44
+3407   ASAHI KASEI CORPORATION      1,650 +0.6%   1.21   1.58
+2972   SANKEI REAL ESTATE Inc.    128,400 +0.4%   1.23   1.51
+3433   TOCALO Co.,Ltd.              2,802 +2.1%   1.24   1.69
+2173   Hakuten Corporation            989 +0.6%   1.26   1.86
+2009   THE TORIGOE CO.,LTD.         1,115 +2.7%   1.31   1.35
+2011   SMDAM Active ETF Japan H       814 +2.0%   1.32   1.38
+3267   Phil Company,Inc.            1,097 +1.6%   1.32   1.39
+205A   LOGOS HOLDINGS INC.          1,700 +3.0%   1.33   1.44
