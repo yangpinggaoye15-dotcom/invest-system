@@ -65,6 +65,8 @@
 | `audit_patterns.md` | KPIトレンド・改善サイクル |
 | `hr_patterns.md` | チームパフォーマンストレンド |
 | `verification_patterns.md` | シミュレーション検証パターン |
+| `fix_patterns.md` | 欠陥修正履歴・修正判断基準 |
+| `event_patterns.md` | イベント管理ルール・命名規則 |
 
 ---
 
@@ -97,6 +99,9 @@
 | `simulation_log.json` | Team8管理（最大5銘柄追跡） |
 | `kpi_log.json` | 全チームKPIスコア履歴（直近3年） |
 | `shared_context.md` | 全チーム共有情報ハブ |
+| `daily_context.json` | データ準備スクリプト生成（全チームの入力元） |
+| `fix_report.md` | Team Fix 欠陥修正レポート |
+| `events_report.md` | イベント管理チーム週次レポート |
 
 ---
 
