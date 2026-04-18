@@ -93,6 +93,11 @@
 | `doubler_features.py` | gap_up / vol_spike / repeat_tier からdoubler_score(0-10)算出 |
 | `find_buy_candidates.py` | doubler_score+ミネルヴィニscoreでS/A/B/W tier候補抽出 |
 
+### テスト（`tests/`）
+| ファイル | 役割 |
+|---------|------|
+| `smoke_test.py` | リファクタ前後の動作確認用スモークテスト（APIコール無し・10秒以内） |
+
 ### レポートファイル（`reports/daily/`）
 | ファイル | 担当チーム |
 |---------|---------|
@@ -172,4 +177,13 @@ python run_screen_full.py --test         # 先頭20銘柄（動作確認用）
 
 # サイト確認
 https://invest-system-six.vercel.app/ を Ctrl+Shift+R で強制リロード
+
+# スモークテスト（リファクタ前後の動作確認用・APIコール無し・10秒以内）
+python tests/smoke_test.py
 ```
+
+### リファクタ時の運用
+- Phase B/C/E の**前**に `python tests/smoke_test.py` 実行 → 全合格を確認
+- ファイル分割後に**再実行** → 同じ結果が出るか確認
+- 失敗したら `git reset --hard refactor-backup-20260418` で戻す
+- 計画詳細: `docs/REFACTOR_PLAN.md`
