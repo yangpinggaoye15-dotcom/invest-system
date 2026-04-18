@@ -68,6 +68,7 @@ import mcp_server.utils       # noqa: F401, E402
 import mcp_server.equity      # noqa: F401, E402
 import mcp_server.bulk        # noqa: F401, E402
 import mcp_server.screening   # noqa: F401, E402
+import mcp_server.earnings    # noqa: F401, E402
 
 
 # ---------------------------------------------------------------------------
