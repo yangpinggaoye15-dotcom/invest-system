@@ -69,7 +69,9 @@
 
 | ファイル | 役割 |
 |---------|------|
-| `index.html` | サイト全体（HTML+CSS+JS一体、~4000行） |
+| `index.html` | サイトエントリ HTML（~210行） |
+| `assets/styles.css` | サイト全体の CSS |
+| `assets/js/*.js` | ページ別 JS（common/screening/chart/fins/watchlist/portfolio/health/simulation/kpi/report/chat/init の 12 ファイル） |
 | `run_teams.py` | 9チーム自動実行エントリポイント（~90行） |
 | `run_screen_full.py` | 自動スクリーニング |
 | `stock_mcp_server.py` | MCPサーバー（Claude Desktop用） |

@@ -69,3 +69,12 @@ mcp_server/
 
 ## 進捗ログ
 - 2026-04-18: Phase 前準備完了（destructive simplification 破棄・worktree 整理・Doubler スクリプトコミット）
+- 2026-04-18: Phase A 完了 — スモークテスト追加 (08899e5)
+- 2026-04-18: Phase B 完了 — run_teams.py を teams/ パッケージに分割 (aa00dbc)
+- 2026-04-18: Phase C 完了 — stock_mcp_server.py を mcp_server/ 16 モジュールに分割 (d39d2f7)
+- 2026-04-18: Phase D 完了 — cranky-nash の業績チェックを fins.py に手動移植 (e5bd4d2)
+- 2026-04-18: Phase F 完了 — ROADMAP.md を CLAUDE.md から分離 (301a333)
+- 2026-04-18: Phase E Pass 1 完了 — index.html から CSS/JS を外部ファイルへ抽出 (d04f028)
+- 2026-04-19: Phase E Pass 2 完了 — assets/js/app.js を機能別 12 モジュールに分割 (a71becc)
+
+**全 Phase 完了**。index.html は 1,933 行 → 209 行、assets/js/ に 12 ファイル（最大 28KB）。
